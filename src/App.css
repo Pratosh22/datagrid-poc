@@ -31,3 +31,15 @@
 .average{
   background-color: #F5C744;
 }
+.header{
+  display:flex;
+  flex-direction: column;
+  span{
+    height: 60px;
+  }
+}
+.header-cell{
+  font-size: 12px;
+  height: 50px;
+  line-height: 22px;
+}
