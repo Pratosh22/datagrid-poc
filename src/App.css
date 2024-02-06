@@ -1,6 +1,5 @@
 #root {
   margin: 0 auto;
-  padding: 2rem;
   text-align: center;
 }
 .app{
@@ -39,7 +38,34 @@
   }
 }
 .header-cell{
-  font-size: 12px;
-  height: 50px;
-  line-height: 22px;
+  display: block!important;
+  font-size: 13.33px;
+  line-height: 35px;
+  padding:0;
+}
+.title{
+  border-bottom: 1px solid #444;
+}
+input{
+  border: none;
+  background-color: transparent;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #444;
+  &:focus{
+    outline: none;
+  }
+}
+.rdg-cell{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btns{
+  display: flex;
+  justify-content: flex-end;
+  button{
+    margin: 10px 0;
+  }
 }

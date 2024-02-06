@@ -1,38 +1,36 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+/* eslint-disable react/prop-types */
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import DataGrid, { SelectColumn, textEditor } from "react-data-grid";
-import FilterResults from "react-filter-search";
 import { questions, responses } from "./responses.json";
 import { StarSVG } from "./assets/SVG.jsx";
 import "./App.css";
 import "react-data-grid/lib/styles.css";
 
+
+const filterRows = (rows, column, value) => {
+  const lowercaseValue = value.toLowerCase();
+  return rows.filter((row) => {
+    const cellValue = row[column.key];
+    const cellValueStr = typeof cellValue === 'number' ? cellValue.toString() : cellValue;
+    return cellValueStr.toLowerCase().includes(lowercaseValue);
+  });
+};
+
 function DataGridEx() {
+  console.log('rerender');
+    const gridRef = useRef();
     const [columnDefs, setColumnDefs] = useState([]);
     const [selectedRows, setSelectedRows] = useState(new Set());
     const [rows, setRows] = useState([]);
+    const [originalRows, setOriginalRows] = useState([]);
     const [sortColumns, setSortColumns] = useState([]);
-    const [columnsOrder, setColumnsOrder] = useState([]);
     const [createChartModal, setCreateChartModal] = useState(false);
-    const [filters, setFilters] = useState({});
-    const [value, setValue] = useState("");
+    const [filterValue, setFilterValue] = useState('');
+    const [filterColumn, setFilterColumn] = useState('');
 
-    useEffect(() => {
-        setColumnsOrder(columnDefs.map((_, index) => index));
-    }, [columnDefs]);
-
-    useEffect(() => {
-        console.log(columnDefs, "columnDefs");
-    }, [columnDefs, rows]);
     const onSortColumnsChange = useCallback((sortColumns) => {
         setSortColumns(sortColumns.slice(-1));
     }, []);
-
-
-    const reorderedColumns = useMemo(() => {
-        return columnsOrder.map((index) => columnDefs[index]);
-    }, [columnsOrder]);
-
-    useEffect(() => {}, [columnDefs]);
     const populateColumnData = () => {
         const columnDefs = [SelectColumn];
         questions.forEach((question) => {
@@ -84,14 +82,13 @@ function DataGridEx() {
                 },
                 renderHeaderCell: (p) => {
                     const sortDirection = p.sortDirection;
-                    console.log(value, 'vallllll');
                     return (
                         <>
-                            <div>
+                            <div className="title">
                                 <span>{p.column.name}</span>
                                 <span>{sortDirection === "ASC" ? "🔽" : sortDirection === "DESC" ? "🔼" : ""}</span>
                             </div>
-                            <Inp />
+                            <Inp columnId={p.column.key} columnDefs={columnDefs} rows={rows} setFilterValue={setFilterValue} setFilterColumn={setFilterColumn} deselectCell={deselectCell}/>
                         </>
                     );
                 },
@@ -132,6 +129,7 @@ function DataGridEx() {
             });
             newRows.push(newRow);
         });
+        setOriginalRows(newRows);
         setRows(newRows);
     };
 
@@ -150,17 +148,6 @@ function DataGridEx() {
 
         return direction === "DESC" ? sortedRows.reverse() : sortedRows;
     }, [rows, sortColumns]);
-
-    function onColumnsReorder(sourceKey, targetKey) {
-        setColumnsOrder((columnsOrder) => {
-            const sourceColumnOrderIndex = columnsOrder.findIndex((index) => columnDefs[index].key === sourceKey);
-            const targetColumnOrderIndex = columnsOrder.findIndex((index) => columnDefs[index].key === targetKey);
-            const sourceColumnOrder = columnsOrder[sourceColumnOrderIndex];
-            const newColumnsOrder = columnsOrder.toSpliced(sourceColumnOrderIndex, 1);
-            newColumnsOrder.splice(targetColumnOrderIndex, 0, sourceColumnOrder);
-            return newColumnsOrder;
-        });
-    }
 
     const rowKeyGetter = (row) => {
         //return full row data
@@ -182,34 +169,50 @@ function DataGridEx() {
             const row = rows.find((row) => row.id === id);
             selectedRowsData.push(row);
         });
-        console.log(selectedRowsData, "selectedRowsData");
     };
     useEffect(() => {
         getSelectedRows();
     }, [selectedRows]);
+
+    useEffect(() => {
+      if (filterValue && filterColumn) {
+        const newRows = filterRows(originalRows, filterColumn, filterValue);
+        setRows(newRows);
+      } else {
+        setRows(originalRows);
+      }
+    }, [filterValue, filterColumn, originalRows]);
+
+    const deselectCell = () => {
+      //TODO: Deselect cell
+    };
+
     return (
         <>
             <div className="app">
-                <button
-                    onClick={() => {
-                        setCreateChartModal(true);
-                    }}
-                >
-                    Create Chart
-                </button>
+              <div className="btns">
+                  <button
+                      onClick={() => {
+                          setCreateChartModal(true);
+                      }}
+                  >
+                      Create Chart
+                  </button>
+                  
+              </div>
                 <DataGrid
-                    rowHeight={50}
+                    rowHeight={70}
                     columnWidth={200}
+                    columns={columnDefs}
                     rowKeyGetter={rowKeyGetter}
-                    columns={reorderedColumns}
                     sortColumns={sortColumns}
                     onSortColumnsChange={onSortColumnsChange}
-                    onColumnsReorder={onColumnsReorder}
                     rows={sortedRows}
                     selectedRows={selectedRows}
                     onRowsChange={setRows}
                     onSelectedRowsChange={setSelectedRows}
-                    className="rdg-light fill-grid"
+                    className="rdg-light"
+                    ref={gridRef}
                 />
             </div>
         </>
@@ -219,20 +222,28 @@ function DataGridEx() {
 export default DataGridEx;
 
 
-const Inp = () => {
+const Inp = ({ columnId, columnDefs, setFilterColumn, setFilterValue, deselectCell  }) => {
   const [val, setVal] = useState('')
+  const filterColumn = columnDefs.find((column)=>
+    column.key === columnId
+  );
+  //filter rows based on the column and value
+  useEffect(() => {
+    setFilterValue(val);
+  }, [val,setFilterValue]);
 
   return (
       <input
           type="text"
           value={val}
-          onChange={(e) => setVal(e.target.value)}
+          onChange={(e) => {
+              setVal(e.target.value);
+              setFilterColumn(filterColumn);
+          }}
           onClick={(e) => {
               e.stopPropagation();
+              deselectCell();
           }}
-          // onMouseDown={(e) => {
-          //     e.stopPropagation();
-          // }}
           placeholder="Type to filter.."
       />
   );
