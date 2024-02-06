@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import DataGrid, { SelectColumn, textEditor } from "react-data-grid";
 import { questions, responses } from "./responses.json";
+import CreateChartModal from "./CreateChartModal.jsx";
 import { StarSVG } from "./assets/SVG.jsx";
 import "./App.css";
 import "react-data-grid/lib/styles.css";
@@ -17,10 +18,10 @@ const filterRows = (rows, column, value) => {
 };
 
 function DataGridEx() {
-  console.log('rerender');
     const gridRef = useRef();
     const [columnDefs, setColumnDefs] = useState([]);
     const [selectedRows, setSelectedRows] = useState(new Set());
+    const [selectedRowsData, setSelectedRowsData] = useState([]);
     const [rows, setRows] = useState([]);
     const [originalRows, setOriginalRows] = useState([]);
     const [sortColumns, setSortColumns] = useState([]);
@@ -169,6 +170,7 @@ function DataGridEx() {
             const row = rows.find((row) => row.id === id);
             selectedRowsData.push(row);
         });
+        setSelectedRowsData(selectedRowsData);
     };
     useEffect(() => {
         getSelectedRows();
@@ -189,17 +191,29 @@ function DataGridEx() {
 
     return (
         <>
+            {createChartModal && (
+                <CreateChartModal
+                    onClose={() => {
+                        setCreateChartModal(false);
+                    }}
+                    open={createChartModal}
+                   selectedRowsData={
+                    selectedRowsData.filter((row) => row)
+                   }
+                   columnDefs={columnDefs}
+                />
+            )}
             <div className="app">
-              <div className="btns">
-                  <button
-                      onClick={() => {
-                          setCreateChartModal(true);
-                      }}
-                  >
-                      Create Chart
-                  </button>
-                  
-              </div>
+                <div className="btns">
+                    <button
+                        onClick={() => {
+                            setCreateChartModal(true);
+                        }}
+                        disabled={selectedRows.size === 0}
+                    >
+                        Create Chart
+                    </button>
+                </div>
                 <DataGrid
                     rowHeight={70}
                     columnWidth={200}

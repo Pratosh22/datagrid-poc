@@ -61,11 +61,21 @@ input{
   display: flex;
   align-items: center;
   justify-content: center;
+  border-inline-end: 1px solid #ddd;
+  border:1px solid #ddd;
 }
 .btns{
   display: flex;
   justify-content: flex-end;
   button{
+    width: fit-content;
     margin: 10px 0;
   }
+}
+.rdg-checkbox{
+  border:1px solid #ddd;
+}
+.closeSvg{
+ cursor: pointer;
+ margin-left: 8px;
 }
