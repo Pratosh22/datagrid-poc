@@ -1,11 +1,12 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import DataGrid, { SelectColumn, textEditor } from "react-data-grid";
+import DataGrid, { SelectColumn, textEditor } from "@pikpok/react-data-grid";
 import { questions, responses } from "./responses.json";
 import CreateChartModal from "./CreateChartModal.jsx";
 import { StarSVG } from "./assets/SVG.jsx";
 import "./App.css";
-import "react-data-grid/lib/styles.css";
+import "@pikpok/react-data-grid/lib/styles.css";
+import { Text, Box, Button } from "@sparrowengg/twigs-react";
 
 
 const filterRows = (rows, column, value) => {
@@ -28,20 +29,23 @@ function DataGridEx() {
     const [createChartModal, setCreateChartModal] = useState(false);
     const [filterValue, setFilterValue] = useState('');
     const [filterColumn, setFilterColumn] = useState('');
+    const [selectedcells, setSelectedcells] = useState([]);
 
     const onSortColumnsChange = useCallback((sortColumns) => {
         setSortColumns(sortColumns.slice(-1));
     }, []);
     const populateColumnData = () => {
         const columnDefs = [SelectColumn];
-        questions.forEach((question) => {
+        questions.forEach((question, idx) => {
             const column = {
                 key: question.id,
+                idx: idx + 1,
                 name: question.rtxt.blocks[0].text.length > 20 ? question.rtxt.blocks[0].text.substring(0, 25) + "..." : question.rtxt.blocks[0].text,
                 question_type: question.type,
                 resizable: true,
                 sortable: true,
                 width: 200,
+                height:70,
                 choices: question.choices,
                 headerCellClass: "header-cell",
                 renderEditCell: (p) => {
@@ -60,6 +64,7 @@ function DataGridEx() {
                 },
                 renderCell: (p) => {
                     if (p.column.question_type === "Rating") {
+                      console.log(p.row[p.column.key], "p.row[p.column.key]");
                         return (
                             <span>
                                 {Array.from({ length: p.row[p.column.key] }, (_, i) => i).map((i) => (
@@ -101,9 +106,10 @@ function DataGridEx() {
 
     const populateRowData = () => {
         const newRows = [];
-        responses.forEach((response) => {
+        responses.forEach((response, rowIdx) => {
             const newRow = {
                 id: response.id,
+                idx: rowIdx + 1,
             };
             Object.keys(response.submission).forEach((key) => {
                 if (key.startsWith("question_")) {
@@ -189,18 +195,41 @@ function DataGridEx() {
       //TODO: Deselect cell
     };
 
+    useEffect(() => {
+      if (selectedcells.length) {
+          try {
+              const columnIdx = selectedcells[0].startColumnIdx;
+              const rowIdx = selectedcells[0].startRowIdx;
+              const endRowIdx = selectedcells[0].endRowIdx;
+              const endColumnIdx = selectedcells[0].endColumnIdx;
+              const selectedColumn = columnDefs.filter((column) => column.idx === columnIdx);
+              const selectedRows = sortedRows.slice(rowIdx, endRowIdx + 1);
+              //from the selectedRows get the selected cells data from the selected column
+              const selectedCellsData = selectedRows.map((row) => row[selectedColumn[0].key]);
+              console.log(selectedCellsData, "selectedCellsData");
+          } catch (e) {
+              console.log(e);
+          }
+      }
+  }, [selectedcells, sortedRows, columnDefs]);
+
+  useEffect(() => {
+    
+
+  },[]);
     return (
-        <>
+        <div onContextMenu={(e)=>{
+            e.preventDefault();
+            e.stopPropagation();
+         }}>
             {createChartModal && (
                 <CreateChartModal
                     onClose={() => {
                         setCreateChartModal(false);
                     }}
                     open={createChartModal}
-                   selectedRowsData={
-                    selectedRowsData.filter((row) => row)
-                   }
-                   columnDefs={columnDefs}
+                    selectedRowsData={selectedRowsData.filter((row) => row)}
+                    columnDefs={columnDefs}
                 />
             )}
             <div className="app">
@@ -225,11 +254,19 @@ function DataGridEx() {
                     selectedRows={selectedRows}
                     onRowsChange={setRows}
                     onSelectedRowsChange={setSelectedRows}
+                    enableRangeSelection={true}
+                    onSelectedRangesChange={(r) => {
+                        setSelectedcells(r);
+                    }}
+                    onCellContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }}
                     className="rdg-light"
                     ref={gridRef}
                 />
             </div>
-        </>
+        </div>
     );
 }
 
@@ -254,6 +291,10 @@ const Inp = ({ columnId, columnDefs, setFilterColumn, setFilterValue, deselectCe
               setVal(e.target.value);
               setFilterColumn(filterColumn);
           }}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+          }
+          }
           onClick={(e) => {
               e.stopPropagation();
               deselectCell();

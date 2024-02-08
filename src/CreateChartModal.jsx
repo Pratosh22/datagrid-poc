@@ -62,7 +62,6 @@ function CreateChartModal({ onClose, open, selectedRowsData, columnDefs }) {
       };
   }, [open]);
 
-  console.log(selectedRowsData);
 
   const getQuestions = () => {
     const validColumn = columnDefs.filter((column) => column.question_type === "OpinionScale" || column.question_type === "Rating");
@@ -190,16 +189,18 @@ const ShowChart = ({ selectedChartType, selectedOption, selectedRowsData, onClos
     const values = selectedRowsData
     .map((row) => row[selectedOptionId])
     .filter((value) => value !== undefined);
-    console.log(values);
     const chartData = values.map((value, index) => ({ name: index, uv: value }));
     const occurences = {};
     values.forEach((value) => {
       occurences[value] = (occurences[value] || 0) + 1;
     });
     const occurencesArray = Object.entries(occurences).map(([rating, count]) => ({ rating, count }));
-    if(selectedChartType === "wordcloud"){
-      console.log(values);
-    }
+    const worldCloudOccurences = values.reduce((acc, value) => {
+        acc[value] = (acc[value] || 0) + 1;
+        return acc;
+    }, {});
+    console.log(worldCloudOccurences, "worldCloudOccurences");
+    console.log(occurencesArray, "occurencesArray");
     return (
         <Box>
             <Dialog title="View Chart" onClose={onClose} open={open} size="md">
@@ -250,9 +251,18 @@ const ShowChart = ({ selectedChartType, selectedOption, selectedRowsData, onClos
                                 </PieChart>
                             </>
                         )}
-                        {selectedChartType === "wordcloud" && <>
-                            <ReactWordcloud words={values.map((value) => ({ text: value, value: 1 }))} />
-                        </>}
+                        {selectedChartType === "wordcloud" && (
+                            <>
+                                <ReactWordcloud
+                                    words={[...new Set(values)].map((value) => {
+                                        return {
+                                            text: value,
+                                            value: worldCloudOccurences[value],
+                                        };
+                                    })}
+                                />
+                            </>
+                        )}
                     </DialogDescription>
                 </DialogContent>
             </Dialog>
