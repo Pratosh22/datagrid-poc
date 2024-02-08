@@ -47,7 +47,9 @@ function SlickGrid() {
     const [chartType, selectedChartType] = useState(null);
     const [loading, setLoading] = useState(true);
     const gridOptions = {
-        enableCellNavigation: true,
+        enableAutoResize:true,
+        enableCellNavigation:true,
+        cellSelection:true,
         editable: true,
         rowHeight: 70,
         enableHeaderMenu: false,
@@ -105,8 +107,10 @@ function SlickGrid() {
                   // operator: 'RangeInclusive', // defaults to exclusive
                 },
                 sortable: true,
-                type: question.type === 'OpinionScale' || question.type === 'Rating' ? FieldType.number : question.type === 'Dropdown' || question.type === 'MultiChoice' ? FieldType.string : FieldType.string,
-                choices:question.choices,
+                params:{
+                  choices: question.choices
+                },
+                type: question.type === 'OpinionScale' || question.type === 'Rating' ? FieldType.number : FieldType.string,
                 minWidth: 200,
                 formatter: question.type === 'Rating' ? StarFormatter : question.type === 'OpinionScale' ? RatingFormatter : question.type === 'Dropdown' || question.type === 'MultiChoice' ? Formatters.text : null,
                 editor: {
@@ -143,7 +147,7 @@ function SlickGrid() {
                 if (response.submission[key].skipped) {
                   newRow[column.id] = "--Skipped--";
                 } else if (response.submission[key].answer_choice_id) {
-                  const choices = column.choices;
+                  const choices = column.params.choices;
                   const choice = choices.find((choice) => choice.id === response.submission[key].answer_choice_id);
                   newRow[column.id] = choice.txt;
               }  else {
@@ -180,10 +184,7 @@ function SlickGrid() {
                         gridId="grid1"
                         dataset={rows}
                         columnDefinitions={columnDefs}
-                        enableAutoResize={true}
-                        enableCellNavigation={true}
                         gridOptions={gridOptions}
-                        cellSelection={true}
                         onReactGridCreated={
                           ()=>{
                             console.log('grid created');
