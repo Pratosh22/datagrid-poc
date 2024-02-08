@@ -9,26 +9,34 @@ const StarFormatter = (row, cell, value, columnDef, dataContext) => {
   for (let i = 0; i < value; i++) {
       stars.push(<StarSVG key={i} />);
   }
-  return ReactDOMServer.renderToStaticMarkup(stars);
+  return ReactDOMServer.renderToStaticMarkup(
+    <span data-stars={value}>
+      {stars}
+    </span>
+  );
 };
 
 const RatingFormatter = (row, cell, value, columnDef, dataContext) => {
-  return `<span class="opinionScale ${value < 5 ? 'low' : value >= 5 && value < 8 ? 'average' : 'high' } ">${value}</span>`;
+  return `<span class="opinionScale ${value < 5 ? 'low' : value >= 5 && value < 8 ? 'average' : 'high' }" data-rating= ${value}>${value}</span>`;
 }
 
-const chartSelect = () => {
+const chartSelect = (setShowModal) => {
     const selectedRows = document.querySelectorAll(".selected");
     const values = [];
     selectedRows.forEach((row) => {
-        //if row.innerHTML is "html" sanitize it
-        if (row.innerHTML.includes("<")) {
+        // if row.innerHTML is "html" sanitize it
+        if (row.childNodes[0].nodeName === "SPAN" && row.childNodes[0].getAttribute("data-rating")) {
             const parser = new DOMParser();
             const doc = parser.parseFromString(row.innerHTML, "text/html");
             values.push(doc.body.textContent);
-        } else {
+        } else if (row.childNodes[0].nodeName === "SPAN" && row.childNodes[0].getAttribute("data-stars")){
+          console.log(row.childNodes, 'ciuld nodes');
+            values.push(row.childNodes[0].getAttribute("data-stars"));
+        } else{
             values.push(row.innerHTML);
         }
     });
+    setShowModal(true);
     console.log(values, "selected rows");
 };
   
@@ -36,7 +44,8 @@ const chartSelect = () => {
 function SlickGrid() {
     const [columnDefs, setColumnDefs] = useState([]);
     const [rows, setRows] = useState([]);
-
+    const [chartType, selectedChartType] = useState(null);
+    const [loading, setLoading] = useState(true);
     const gridOptions = {
         enableCellNavigation: true,
         editable: true,
@@ -46,39 +55,40 @@ function SlickGrid() {
         gridMenu: {
             iconCssClass: "fa-solid fa-bars",
             menuWidth: 37,
+            subItemChevronClass: "fa-solid fa-chevron-right",
         },
         enableExcelCopyBuffer: true,
         exportOptions: {
             // set at the grid option level, meaning all column will evaluate the Formatter (when it has a Formatter defined)
             exportWithFormatter: true,
         },
-        subItemChevronClass: "fa-solid fa-chevron-right",
         contextMenu: {
-            hideCopyCellValueCommand: true,
-            optionItems: [
-                {
-                    option: true,
-                    title: "Create Chart",
-                    iconCssClass: "fa-solid fa-chart-simple",
-                    optionItems: [
-                        { option: "line-chart", title: "Line Chart", iconCssClass: "fa-solid fa-chart-line", action: chartSelect },
-                        { option: "bar-chart", title: "Bar Chart", iconCssClass: "fa-solid fa-chart-bar", action: chartSelect },
-                        { option: "pie-chart", title: "Pie Chart", iconCssClass: "fa-solid fa-chart-pie", action: chartSelect },
-                    ],
-                },
-                { divider: true, command: "", positionOrder: 60 },
-                {
-                    option: true,
-                    title: "Copy",
-                    iconCssClass: "fa-solid fa-copy",
-                    action: (e, args) => {
-                        console.log("copied");
-                        document.execCommand("copy");
-                    },
-                },
-            ],
+          hideCopyCellValueCommand: true,
+          optionItems: [
+              {
+                  option: true,
+                  title: "Create Chart",
+                  iconCssClass: "fa-solid fa-chart-simple",
+                  optionItems: [
+                      { option: "line-chart", title: "Line Chart", iconCssClass: "fa-solid fa-chart-line", action: () => chartSelect() },
+                      { option: "bar-chart", title: "Bar Chart", iconCssClass: "fa-solid fa-chart-bar", action: () => chartSelect() },
+                      { option: "pie-chart", title: "Pie Chart", iconCssClass: "fa-solid fa-chart-pie", action: () => chartSelect() },
+                  ],
+              },
+              { divider: true, command: "", positionOrder: 60 },
+              {
+                  option: true,
+                  title: "Copy",
+                  iconCssClass: "fa-solid fa-copy",
+                  action: (e, args) => {
+                      console.log("copied");
+                      document.execCommand("copy");
+                  },
+              },
+          ],
         },
-    };
+        // enableFiltering: true,
+      };
     const populateColumnData = () => {
         const columnArr = [];
         questions.forEach((question) => {
@@ -151,6 +161,7 @@ function SlickGrid() {
           newRows.push(newRow);
         });
         setRows(newRows);
+        setLoading(false);
       };
       
       useEffect(() => {
@@ -162,7 +173,7 @@ function SlickGrid() {
     return (
         <div>
             {
-                !rows ? (
+                loading ? (
                     <div>Loading...</div>
                 ) : (
                     <SlickgridReact
@@ -170,10 +181,14 @@ function SlickGrid() {
                         dataset={rows}
                         columnDefinitions={columnDefs}
                         enableAutoResize={true}
-                        onSelectedRangeC
                         enableCellNavigation={true}
                         gridOptions={gridOptions}
                         cellSelection={true}
+                        onReactGridCreated={
+                          ()=>{
+                            console.log('grid created');
+                          }
+                        }
                     />
                 )
             }
