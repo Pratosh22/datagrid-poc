@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Formatters, SlickgridReact, Editors, FieldType, Filters, OperatorType } from "slickgrid-react";
 import { questions, responses } from "./responses.json";
 import ReactDOMServer from 'react-dom/server';
+import Draggable from 'react-draggable'
+import FloatingModal from "./FloatingMoadal";
 import { StarSVG } from "./assets/SVG";
 
 const StarFormatter = (row, cell, value, columnDef, dataContext) => {
@@ -20,32 +22,50 @@ const RatingFormatter = (row, cell, value, columnDef, dataContext) => {
   return `<span class="opinionScale ${value < 5 ? 'low' : value >= 5 && value < 8 ? 'average' : 'high' }" data-rating= ${value}>${value}</span>`;
 }
 
-const chartSelect = (setShowModal) => {
-    const selectedRows = document.querySelectorAll(".selected");
-    const values = [];
-    selectedRows.forEach((row) => {
-        // if row.innerHTML is "html" sanitize it
-        if (row.childNodes[0].nodeName === "SPAN" && row.childNodes[0].getAttribute("data-rating")) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(row.innerHTML, "text/html");
-            values.push(doc.body.textContent);
-        } else if (row.childNodes[0].nodeName === "SPAN" && row.childNodes[0].getAttribute("data-stars")){
-          console.log(row.childNodes, 'ciuld nodes');
-            values.push(row.childNodes[0].getAttribute("data-stars"));
-        } else{
-            values.push(row.innerHTML);
-        }
-    });
-    setShowModal(true);
-    console.log(values, "selected rows");
+const chartSelect = (addModal, setSelectedValues, type, setSelectedChartType) => {
+  const selectedRows = document.querySelectorAll(".selected");
+  const values = {};
+  selectedRows.forEach((row) => {
+    let value;
+    // if row.innerHTML is "html" sanitize it
+    if (row.childNodes[0].nodeName === "SPAN" && row.childNodes[0].getAttribute("data-rating")) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(row.innerHTML, "text/html");
+      value = doc.body.textContent;
+    } else if (row.childNodes[0].nodeName === "SPAN" && row.childNodes[0].getAttribute("data-stars")){
+      value = row.childNodes[0].getAttribute("data-stars");
+    } else{
+      value = row.innerHTML;
+    }
+    const rowKey = `${row.classList[2]}`;
+    if (!values[rowKey]) {
+      values[rowKey] = [];
+    }
+    values[rowKey].push({ value });
+  });
+  setSelectedChartType(type);
+  setSelectedValues(values);
+  addModal(type, values);
+  console.log(values, "selected rows");
 };
   
 
 function SlickGrid() {
     const [columnDefs, setColumnDefs] = useState([]);
     const [rows, setRows] = useState([]);
-    const [chartType, selectedChartType] = useState(null);
+    const [selectedChartType,setSelectedChartType] = useState(null);
+    const [modals, setModals] = useState([]);
+
+    const addModal = (chartType, data) => {
+      setModals(prevModals => [...prevModals, { chartType, data }]);
+    };
+  
+    const removeModal = (index) => {
+      setModals(prevModals => prevModals.filter((_, i) => i !== index));
+    };
+  
     const [loading, setLoading] = useState(true);
+    const [selectedValues, setSelectedValues] = useState([]);
     const gridOptions = {
         enableAutoResize:true,
         enableCellNavigation:true,
@@ -60,6 +80,11 @@ function SlickGrid() {
             subItemChevronClass: "fa-solid fa-chevron-right",
         },
         enableExcelCopyBuffer: true,
+        excelCopyBufferOptions: {
+          onCopyCells: (e,args) => console.log('onCopyCells', e, args),
+          onPasteCells: (e,args) => console.log('onPasteCells', e, args),
+          onCopyCancelled: (e, args) => console.log('onCopyCancelled', e, args),
+        },
         exportOptions: {
             // set at the grid option level, meaning all column will evaluate the Formatter (when it has a Formatter defined)
             exportWithFormatter: true,
@@ -72,9 +97,9 @@ function SlickGrid() {
                   title: "Create Chart",
                   iconCssClass: "fa-solid fa-chart-simple",
                   optionItems: [
-                      { option: "line-chart", title: "Line Chart", iconCssClass: "fa-solid fa-chart-line", action: () => chartSelect() },
-                      { option: "bar-chart", title: "Bar Chart", iconCssClass: "fa-solid fa-chart-bar", action: () => chartSelect() },
-                      { option: "pie-chart", title: "Pie Chart", iconCssClass: "fa-solid fa-chart-pie", action: () => chartSelect() },
+                      { option: "line-chart", title: "Line Chart", iconCssClass: "fa-solid fa-chart-line", action: () => chartSelect(addModal,setSelectedValues, 'linechart', setSelectedChartType) },
+                      { option: "bar-chart", title: "Bar Chart", iconCssClass: "fa-solid fa-chart-bar", action: () => chartSelect(addModal,setSelectedValues, 'barchart', setSelectedChartType) },
+                      { option: "pie-chart", title: "Pie Chart", iconCssClass: "fa-solid fa-chart-pie", action: () => chartSelect(addModal,setSelectedValues, 'piechart', setSelectedChartType) },
                   ],
               },
               { divider: true, command: "", positionOrder: 60 },
@@ -176,23 +201,35 @@ function SlickGrid() {
     console.log(rows, 'rows');
     return (
         <div>
-            {
-                loading ? (
-                    <div>Loading...</div>
-                ) : (
-                    <SlickgridReact
-                        gridId="grid1"
-                        dataset={rows}
-                        columnDefinitions={columnDefs}
-                        gridOptions={gridOptions}
-                        onReactGridCreated={
-                          ()=>{
-                            console.log('grid created');
-                          }
-                        }
-                    />
-                )
-            }
+            {modals.map((modal, index) => (
+                <Draggable key={index}>
+                    <div
+                        style={{
+                            position: "absolute",
+                            top: "50%",
+                            left: "50%",
+                            transform: "translate(-50%, -50%)",
+                            backgroundColor: "white",
+                            zIndex: 1000,
+                        }}
+                    >
+                        <FloatingModal chartType={modal.chartType} data={modal.data} onClose={() => removeModal(index)} />
+                    </div>
+                </Draggable>
+            ))}
+            {loading ? (
+                <div>Loading...</div>
+            ) : (
+                <SlickgridReact
+                    gridId="grid1"
+                    dataset={rows}
+                    columnDefinitions={columnDefs}
+                    gridOptions={gridOptions}
+                    onReactGridCreated={() => {
+                        console.log("grid created");
+                    }}
+                />
+            )}
         </div>
     );
 }

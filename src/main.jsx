@@ -7,7 +7,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap';
 import 'flatpickr/dist/flatpickr.min.css';
 import './index.css'
-import 'multiple-select-modified/src/multiple-select.css';
+import 'multiple-select-vanilla';
 import './slickgrid.scss'
 
 ReactDOM.createRoot(document.getElementById("root")).render(
