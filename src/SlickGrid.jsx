@@ -74,6 +74,7 @@ function SlickGrid() {
         rowHeight: 70,
         enableHeaderMenu: false,
         enableGridMenu: true,
+        filterTypingDebounce: 250,
         gridMenu: {
             iconCssClass: "fa-solid fa-bars",
             menuWidth: 37,
@@ -114,26 +115,21 @@ function SlickGrid() {
               },
           ],
         },
-        // enableFiltering: true,
+        enableFiltering: true,
       };
     const populateColumnData = () => {
         const columnArr = [];
-        questions.forEach((question) => {
+        questions.forEach((question, idx) => {
             const column = {
-                id: question.id,
+                id:Math.random().toString(36).substring(7),
                 field:question.id.toString(),
+                filterable: true,
+                excludeFromHeaderMenu: true,
                 name: question.rtxt.blocks[0].text.length > 20 ? question.rtxt.blocks[0].text.substring(0, 20) + "..." : question.rtxt.blocks[0].text,
-                filterable:true,
-                filter: {
-                  model: Filters.input,
-                  operator: OperatorType.rangeInclusive,// defaults to exclusive
-            
-                  // // or use the string (case sensitive)
-                  // operator: 'RangeInclusive', // defaults to exclusive
-                },
                 sortable: true,
                 params:{
-                  choices: question.choices
+                  choices: question.choices,
+                  id:question.id,
                 },
                 type: question.type === 'OpinionScale' || question.type === 'Rating' ? FieldType.number : FieldType.string,
                 minWidth: 200,
@@ -167,20 +163,20 @@ function SlickGrid() {
           Object.keys(response.submission).forEach((key) => {
             if (key.startsWith("question_")) {
               const questionId = key.split("_")[1];
-              const column = columnArr.find((columnDef) => columnDef.id == `${questionId}`);
+              const column = columnArr.find((columnDef) => columnDef.params.id == `${questionId}`);
               if (column) {
                 if (response.submission[key].skipped) {
-                  newRow[column.id] = "--Skipped--";
+                  newRow[column.params.id] = "--Skipped--";
                 } else if (response.submission[key].answer_choice_id) {
                   const choices = column.params.choices;
                   const choice = choices.find((choice) => choice.id === response.submission[key].answer_choice_id);
-                  newRow[column.id] = choice.txt;
+                  newRow[column.params.id] = choice.txt;
               }  else {
-                  newRow[column.id] = response.submission[key].answer;
+                  newRow[column.params.id] = response.submission[key].answer;
                 }
               }
             }
-            const questionNotAnswered = columnArr.filter((columnDef) => columnDef.id != 'name' && !Object.keys(response.submission).includes(`question_${columnDef.id}`));
+            const questionNotAnswered = columnArr.filter((columnDef) => columnDef.id != 'name' && !Object.keys(response.submission).includes(`question_${columnDef.params.id}`));
             if (questionNotAnswered.length){
               questionNotAnswered.forEach((questionNotAnswered) => {
                 newRow[questionNotAnswered.key] = '--Not Answered--';
