@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Formatters, SlickgridReact, Editors, FieldType, Filters, OperatorType } from "slickgrid-react";
+import React, { useState, useEffect,useRef } from "react";
+import { Formatters, SlickgridReact, Editors, FieldType, Filters, GroupTotalFormatters, Aggregators, SlickDataView, SlickGrid  } from "slickgrid-react";
 import { questions, responses } from "./responses.json";
 import ReactDOMServer from 'react-dom/server';
 import Draggable from 'react-draggable'
@@ -50,12 +50,15 @@ const chartSelect = (addModal, setSelectedValues, type, setSelectedChartType) =>
 };
   
 
-function SlickGrid() {
+function SlickGridR() {
+
     const [columnDefs, setColumnDefs] = useState([]);
     const [rows, setRows] = useState([]);
     const [selectedChartType,setSelectedChartType] = useState(null);
     const [modals, setModals] = useState([]);
-
+    const [gridObj, setGridObj] = useState(null);
+    const [dataViewObj, setDataViewObj] = useState(null);
+    const [slickgrid, setSlickgrid] = useState(null);
     const addModal = (chartType, data) => {
       setModals(prevModals => [...prevModals, { chartType, data }]);
     };
@@ -66,15 +69,20 @@ function SlickGrid() {
   
     const [loading, setLoading] = useState(true);
     const [selectedValues, setSelectedValues] = useState([]);
+
     const gridOptions = {
         enableAutoResize:true,
         enableCellNavigation:true,
         cellSelection:true,
         editable: true,
-        rowHeight: 70,
+        rowHeight: 50,
+        headerRowHeight: 30,
         enableHeaderMenu: false,
         enableGridMenu: true,
         filterTypingDebounce: 250,
+        createPreHeaderPanel: true,
+        showPreHeaderPanel: true,
+        preHeaderPanelHeight: 70,
         gridMenu: {
             iconCssClass: "fa-solid fa-bars",
             menuWidth: 37,
@@ -116,6 +124,15 @@ function SlickGrid() {
           ],
         },
         enableFiltering: true,
+        enableGrouping: true,    
+        enableDraggableGrouping: true,
+        draggableGrouping: {
+          dropPlaceHolderText: 'Drop a column header here to group by the column',
+          // groupIconCssClass: 'fa fa-outdent',
+          deleteIconCssClass: 'fa fa-times',
+          // onGroupChanged: (_e, args) => this.onGroupChanged(args),
+          // onExtensionRegistered: (extension) => this.draggableGroupingPlugin = extension,
+        }, 
       };
     const populateColumnData = () => {
         const columnArr = [];
@@ -146,6 +163,25 @@ function SlickGrid() {
                 },
                 onCellChange: (e, args) => {
                   console.log(e, args, "cell change");
+                },
+                filter:{
+                  model: question.type === 'Dropdown' || question.type === 'MultiChoice' ? Filters.singleSelect : Filters.input,
+                  collection: question.type === 'Dropdown' || question.type === 'MultiChoice' ? question.choices.map((choice)=>{
+                    return {
+                      value:choice.txt,
+                      label:choice.txt
+                    }
+                  }) : [],
+                },
+                groupTotalsFormatter: question.type === 'Rating' ? GroupTotalFormatters.avgTotals : question.type === 'OpinionScale' ? GroupTotalFormatters.avgTotals : null,
+                grouping: {
+                  getter: question.id.toString(),
+                  formatter: (g) => `Title: ${g.value}  <span style="color:green">(${g.count} items)</span>`,
+                  aggregators: [
+                    new Aggregators.Max(`${question.type === 'Rating' ? question.id.toString() : question.id.toString()}`),
+                  ],
+                  // aggregateCollapsed: true,
+                  collapsed: true
                 }
             };
             columnArr.push(column);
@@ -193,6 +229,14 @@ function SlickGrid() {
         populateColumnData();
       },[]);
 
+   
+  const reactGridReady = (reactGridInstance) => {
+    console.log("reactGridReady", reactGridInstance);
+    setGridObj(reactGridInstance);
+    setDataViewObj(reactGridInstance.dataView);
+    setSlickgrid(reactGridInstance.slickGrid);
+  };
+
     console.log(columnDefs, "columndefs");
     console.log(rows, 'rows');
     return (
@@ -221,13 +265,16 @@ function SlickGrid() {
                     dataset={rows}
                     columnDefinitions={columnDefs}
                     gridOptions={gridOptions}
-                    onReactGridCreated={() => {
-                        console.log("grid created");
-                    }}
+                    onReactGridCreated={$event => reactGridReady($event.detail)}
+                    onColumnsDrag={(_e, args) => {
+                        console.log("columns dragged", args);
+                      } 
+                    }
+                    customDataView={dataViewObj}
                 />
             )}
         </div>
     );
 }
 
-export default SlickGrid;
+export default SlickGridR;

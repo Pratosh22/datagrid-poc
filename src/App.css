@@ -80,3 +80,21 @@ input{
  cursor: pointer;
  margin-left: 8px;
 }
+.slick-dropzone{
+  height: 55px!important;
+  .slick-draggable-dropzone-placeholder{
+    text-align: start!important;
+  }
+}
+.slick-group{
+  .slick-cell{
+    display: flex!important;
+    justify-content: start!important;
+  }
+}
+.slick-headerrow-column{
+  padding-top: 0 !important;
+}
+.slick-empty-data-warning {
+  margin-left: 0!important;
+}
