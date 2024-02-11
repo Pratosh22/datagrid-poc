@@ -73,3 +73,13 @@ button:focus-visible {
 .slick-cell{
   border-right: 1px solid #e0e0e0;
 }
+.slick-viewport{
+  overflow: hidden!important;
+}
+.slick-pagination{
+  display:flex;
+  justify-content: space-between;
+}
+.items-per-page{
+  color:black !important;
+}

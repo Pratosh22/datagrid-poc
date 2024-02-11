@@ -133,6 +133,11 @@ function SlickGridR() {
           // onGroupChanged: (_e, args) => this.onGroupChanged(args),
           // onExtensionRegistered: (extension) => this.draggableGroupingPlugin = extension,
         }, 
+        enablePagination: true,
+        pagination: {
+          pageSizes: [5, 10, 15, 20, 25, 30, 40, 50, 75, 100],
+          pageSize: 20
+        },
       };
     const populateColumnData = () => {
         const columnArr = [];
@@ -231,14 +236,15 @@ function SlickGridR() {
 
    
   const reactGridReady = (reactGridInstance) => {
-    console.log("reactGridReady", reactGridInstance);
     setGridObj(reactGridInstance);
     setDataViewObj(reactGridInstance.dataView);
     setSlickgrid(reactGridInstance.slickGrid);
   };
 
-    console.log(columnDefs, "columndefs");
-    console.log(rows, 'rows');
+  useEffect(()=>{
+    console.log(gridObj, "gridObj");
+  },[gridObj]);
+
     return (
         <div>
             {modals.map((modal, index) => (
