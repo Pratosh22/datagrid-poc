@@ -1,5 +1,6 @@
 import React, { useState, useEffect,useRef } from "react";
 import { Formatters, SlickgridReact, Editors, FieldType, Filters, GroupTotalFormatters, Aggregators, SlickDataView, SlickGrid  } from "slickgrid-react";
+import { SlickCustomTooltip } from '@slickgrid-universal/custom-tooltip-plugin';
 import { questions, responses } from "./responses.json";
 import ReactDOMServer from 'react-dom/server';
 import Draggable from 'react-draggable'
@@ -48,7 +49,10 @@ const chartSelect = (addModal, setSelectedValues, type, setSelectedChartType) =>
   addModal(type, values);
   console.log(values, "selected rows");
 };
-  
+
+const headerFormatter = (row, cell, value, column) => {
+  // return `<div class="tooltip-2cols-row">${column.params.name}</div>`;
+}
 
 function SlickGridR() {
 
@@ -135,9 +139,13 @@ function SlickGridR() {
         }, 
         enablePagination: true,
         pagination: {
-          pageSizes: [5, 10, 15, 20, 25, 30, 40, 50, 75, 100],
+          pageSizes: [5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 250, 500],
           pageSize: 20
         },
+        externalResources: [new SlickCustomTooltip()],
+        customTooltip: {
+          headerFormatter: headerFormatter,
+        }
       };
     const populateColumnData = () => {
         const columnArr = [];
@@ -152,6 +160,7 @@ function SlickGridR() {
                 params:{
                   choices: question.choices,
                   id:question.id,
+                  name: question.rtxt.blocks[0].text,
                 },
                 type: question.type === 'OpinionScale' || question.type === 'Rating' ? FieldType.number : FieldType.string,
                 minWidth: 200,
@@ -161,8 +170,8 @@ function SlickGridR() {
                   placeholder: 'Enter text',
                   collection: question.type === 'Dropdown' || question.type === 'MultiChoice' ? question.choices.map((choice)=>{
                     return {
-                      value:choice.txt,
-                      label:choice.txt
+                      value:choice?.txt,
+                      label:choice?.txt,
                     }
                   }) : [],
                 },
@@ -173,8 +182,8 @@ function SlickGridR() {
                   model: question.type === 'Dropdown' || question.type === 'MultiChoice' ? Filters.singleSelect : Filters.input,
                   collection: question.type === 'Dropdown' || question.type === 'MultiChoice' ? question.choices.map((choice)=>{
                     return {
-                      value:choice.txt,
-                      label:choice.txt
+                      value:choice?.txt,
+                      label:choice?.txt,
                     }
                   }) : [],
                 },
@@ -183,7 +192,7 @@ function SlickGridR() {
                   getter: question.id.toString(),
                   formatter: (g) => `Title: ${g.value}  <span style="color:green">(${g.count} items)</span>`,
                   aggregators: [
-                    new Aggregators.Max(`${question.type === 'Rating' ? question.id.toString() : question.id.toString()}`),
+                    new Aggregators.Avg(`${question.type === 'Rating' ? question.id.toString() : question.id.toString()}`),
                   ],
                   // aggregateCollapsed: true,
                   collapsed: true
@@ -211,7 +220,7 @@ function SlickGridR() {
                 } else if (response.submission[key].answer_choice_id) {
                   const choices = column.params.choices;
                   const choice = choices.find((choice) => choice.id === response.submission[key].answer_choice_id);
-                  newRow[column.params.id] = choice.txt;
+                  newRow[column.params.id] = choice?.txt;
               }  else {
                   newRow[column.params.id] = response.submission[key].answer;
                 }
@@ -245,19 +254,25 @@ function SlickGridR() {
     console.log(gridObj, "gridObj");
   },[gridObj]);
 
-    return (
+  const setChevron = () => {
+    const chevron = document.getElementsByClassName('sub-item-chevron');
+    chevron[0].innerHTML = '';
+    chevron[0].classList.add('fa-solid', 'fa-chevron-right');
+  }
+
+  return (
         <div>
             {modals.map((modal, index) => (
                 <Draggable key={index}>
                     <div
                         style={{
-                            position: "absolute",
-                            top: "50%",
-                            left: "50%",
-                            transform: "translate(-50%, -50%)",
-                            backgroundColor: "white",
-                            zIndex: 1000,
-                        }}
+                          position: "absolute",
+                          top: `calc(50% + ${index * 20}px)`,
+                          left: `calc(50% + ${index * 20}px)`,
+                          transform: "translate(-50%, -50%)",
+                          backgroundColor: "white",
+                          zIndex: 1000,
+                      }}
                     >
                         <FloatingModal chartType={modal.chartType} data={modal.data} onClose={() => removeModal(index)} />
                     </div>
@@ -277,6 +292,13 @@ function SlickGridR() {
                       } 
                     }
                     customDataView={dataViewObj}
+                    onContextMenu={() => {
+                        setChevron();
+                    }
+                    }
+                    onGridStateChanged={()=>{
+                      console.log('chnge');
+                    }}
                 />
             )}
         </div>

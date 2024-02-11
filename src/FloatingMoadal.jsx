@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, BarChart,Bar, Tooltip, PieChart, Pie} from 'recharts';
 import './FloatingModal.css';
 const chartTypes = [
@@ -13,12 +13,27 @@ function FloatingModal({ chartType, data, onClose }) {
     const selectedChartType = chartTypes.find((type) => type.type === chartType);
     console.log(data);
     console.log(selectedChartType, "selectedChartType");
-    const chartData = data.map((val, idx) => {
-        return {
-            name: idx,
-            response: parseInt(val),
-        };
-    });
+    const [chartData, setChartData] = useState([]);
+
+    useEffect(() => {
+        const newChartData = [];
+        const counts = Array.from({length: 11}, () => 0); // Initialize an array of zeros with length 11 (for scale 0-10)
+    
+        data.r2.forEach(response => {
+            counts[Number(response.value)]++;
+        });
+    
+        counts.forEach((value, index) => {
+            newChartData.push({
+                name: index.toString(),
+                value: value
+            });
+        });
+    
+        setChartData(newChartData);
+    }, [data]);
+
+    console.log(chartData, "chartData");
     return (
         <div className="chart-modal">
             <div className="chart-title-bar">
@@ -30,28 +45,28 @@ function FloatingModal({ chartType, data, onClose }) {
             <div className="chart-container">
                 { selectedChartType.type === "linechart" && (
                     <LineChart width={550} height={300} data={chartData}>
-                        <Line type="monotone" dataKey="response" stroke="#8884d8" />
+                        <Line type="monotone" dataKey="value" stroke="#8884d8" />
                         <CartesianGrid stroke="#ccc" />
                         <XAxis dataKey="name" />
                         <YAxis />
                         <Tooltip />
-                    </LineChart>
+                    </LineChart>    
                 )}
                 {selectedChartType.type === "barchart" && (
                     <>
-                        <BarChart width={550} height={300} data={data}>
+                        <BarChart width={550} height={300} data={chartData}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="rating" />
+                            <XAxis dataKey="name" />
                             <YAxis />
                             <Tooltip />
-                            <Bar dataKey="count" fill="#82ca9d" />
+                            <Bar dataKey="value" fill="#82ca9d" />
                         </BarChart>
                     </>
                 )}
                 {selectedChartType.type === "piechart" && (
                     <>
                         <PieChart width={730} height={250}>
-                            <Pie data={data} dataKey="count" nameKey="rating" fill="#8884d8" />
+                            <Pie data={chartData} dataKey="value" nameKey="name" fill="#8884d8" />
                             <Tooltip />
                         </PieChart>
                     </>

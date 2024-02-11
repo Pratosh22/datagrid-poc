@@ -98,3 +98,12 @@ input{
 .slick-empty-data-warning {
   margin-left: 0!important;
 }
+.pretty{
+  text-wrap: pretty!important;
+}
+.slick-dropzone{
+  width: 2000px!important;
+}
+.tooltip-2cols-row{
+  display: block!important;
+}
