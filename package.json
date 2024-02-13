@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@pikpok/react-data-grid": "^7.0.0-beta.37",
+    "@slickgrid-universal/custom-tooltip-plugin": "^4.3.1",
     "@sparrowengg/twigs-react": "^0.17.6",
     "bootstrap": "^5.3.2",
     "flatpickr": "^4.6.13",
@@ -19,6 +20,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-draggable": "^4.4.6",
+    "react-pivottable": "^0.11.0",
     "react-router-dom": "^6.22.0",
     "react-select": "^5.8.0",
     "react-wordcloud": "^1.2.7",

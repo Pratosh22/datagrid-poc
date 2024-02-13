@@ -19,8 +19,10 @@ function FloatingModal({ chartType, data, onClose }) {
         const newChartData = [];
         const counts = Array.from({length: 11}, () => 0); // Initialize an array of zeros with length 11 (for scale 0-10)
     
-        data.r2.forEach(response => {
-            counts[Number(response.value)]++;
+        Object.keys(data).forEach(key => {
+            data[key].forEach(response => {
+                counts[Number(response.value)]++;
+            });
         });
     
         counts.forEach((value, index) => {
