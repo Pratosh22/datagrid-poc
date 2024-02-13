@@ -1,0 +1,26 @@
+.charts-pivot {
+    table {
+      width: 150%;
+      border-spacing: 0;
+      border-collapse: separate;
+  
+      th, td {
+        padding: 22px;
+      }
+    }
+  
+    thead {
+      th {
+        background: #ededed;
+        border: 0.5px solid #dedede;
+        font-weight: 600;
+      }
+    }
+  
+    tbody {
+      th, td {
+        background: grey;
+        border: 0.5px solid gray;
+      }
+    }
+  }

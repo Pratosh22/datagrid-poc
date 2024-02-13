@@ -5,7 +5,18 @@ import { questions, responses } from "./responses.json";
 import ReactDOMServer from 'react-dom/server';
 import Draggable from 'react-draggable'
 import FloatingModal from "./FloatingMoadal";
+import PivotTable from "./PivotTable";
 import { StarSVG } from "./assets/SVG";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogDescription,
+  DialogContent,
+  Text,
+  DialogClose,
+} from "@sparrowengg/twigs-react";
 
 const StarFormatter = (row, cell, value, columnDef, dataContext) => {
   const stars = [];
@@ -63,6 +74,8 @@ function SlickGridR() {
     const [gridObj, setGridObj] = useState(null);
     const [dataViewObj, setDataViewObj] = useState(null);
     const [slickgrid, setSlickgrid] = useState(null);
+    const [pivotTable, setPivotTable] = useState(false);
+
     const addModal = (chartType, data) => {
       setModals(prevModals => [...prevModals, { chartType, data }]);
     };
@@ -80,7 +93,7 @@ function SlickGridR() {
         cellSelection:true,
         editable: true,
         rowHeight: 50,
-        headerRowHeight: 30,
+        headerRowHeight: 70,
         enableHeaderMenu: false,
         enableGridMenu: true,
         filterTypingDebounce: 250,
@@ -113,6 +126,10 @@ function SlickGridR() {
                       { option: "line-chart", title: "Line Chart", iconCssClass: "fa-solid fa-chart-line", action: () => chartSelect(addModal,setSelectedValues, 'linechart', setSelectedChartType) },
                       { option: "bar-chart", title: "Bar Chart", iconCssClass: "fa-solid fa-chart-bar", action: () => chartSelect(addModal,setSelectedValues, 'barchart', setSelectedChartType) },
                       { option: "pie-chart", title: "Pie Chart", iconCssClass: "fa-solid fa-chart-pie", action: () => chartSelect(addModal,setSelectedValues, 'piechart', setSelectedChartType) },
+                      { option: "pivot-table", title: "Pivot Table", iconCssClass: "fa-solid fa-table", action: () => {
+                        getPivotColumnsAndRows();
+                        setPivotTable(true);
+                      }},
                   ],
               },
               { divider: true, command: "", positionOrder: 60 },
@@ -121,7 +138,7 @@ function SlickGridR() {
                   title: "Copy",
                   iconCssClass: "fa-solid fa-copy",
                   action: (e, args) => {
-                      console.log("copied");
+                      console.log(e, args, "copy");
                       document.execCommand("copy");
                   },
               },
@@ -160,6 +177,7 @@ function SlickGridR() {
                 params:{
                   choices: question.choices,
                   id:question.id,
+                  index:idx,
                   name: question.rtxt.blocks[0].text,
                 },
                 type: question.type === 'OpinionScale' || question.type === 'Rating' ? FieldType.number : FieldType.string,
@@ -191,10 +209,10 @@ function SlickGridR() {
                 grouping: {
                   getter: question.id.toString(),
                   formatter: (g) => `Title: ${g.value}  <span style="color:green">(${g.count} items)</span>`,
-                  aggregators: [
-                    new Aggregators.Avg(`${question.type === 'Rating' ? question.id.toString() : question.id.toString()}`),
-                  ],
-                  // aggregateCollapsed: true,
+                  // aggregators: [
+                  //   new Aggregators.Avg(`${question.type === 'Rating' ? question.id.toString() : question.id.toString()}`),
+                  // ],
+                  aggregateCollapsed: true,
                   collapsed: true
                 }
             };
@@ -252,6 +270,7 @@ function SlickGridR() {
 
   useEffect(()=>{
     console.log(gridObj, "gridObj");
+    setGridObj(gridObj);
   },[gridObj]);
 
   const setChevron = () => {
@@ -260,12 +279,47 @@ function SlickGridR() {
     chevron[0].classList.add('fa-solid', 'fa-chevron-right');
   }
 
+  const getPivotColumnsAndRows = () => {
+    console.log(slickgrid);
+    const selectedCells = document.querySelectorAll(".selected");
+    //cells have column name with l{columnname} loop selectedcells and get column names
+
+    const selectedColumns = [];
+    selectedCells.forEach((cell) => {
+      const columnName = cell.classList[1];
+      if (!selectedColumns.includes(columnName)) {
+        selectedColumns.push(columnName);
+      }
+    });
+    //get selectedColumns from columnDefs with id l{index}
+    const pivotColumns = [];
+    
+    selectedColumns.forEach((column) => {
+        // Remove the leading 'l' and convert to integer
+        const columnIndex = parseInt(column.replace("l", ""), 10);
+        const selectedColumn = columnDefs.find((columnDef) => columnDef.params.index === columnIndex);
+        pivotColumns.push(selectedColumn);
+    });
+    const pivotRows = [pivotColumns.length - 1];
+    pivotColumns.pop();
+    const pivotRowsData = [];
+
+    rows.forEach((row) => {
+      const pivotRow = [];
+      pivotColumns.forEach((column) => {
+        pivotRow.push(row[column.field]);
+      });
+      pivotRowsData.push(pivotRow);
+    });
+    console.log(pivotRowsData, "pivotColumns");
+  }
+
   return (
-        <div>
-            {modals.map((modal, index) => (
-                <Draggable key={index}>
-                    <div
-                        style={{
+      <div>
+          {modals.map((modal, index) => (
+              <Draggable key={index}>
+                  <div
+                      style={{
                           position: "absolute",
                           top: `calc(50% + ${index * 20}px)`,
                           left: `calc(50% + ${index * 20}px)`,
@@ -273,36 +327,90 @@ function SlickGridR() {
                           backgroundColor: "white",
                           zIndex: 1000,
                       }}
-                    >
-                        <FloatingModal chartType={modal.chartType} data={modal.data} onClose={() => removeModal(index)} />
-                    </div>
-                </Draggable>
-            ))}
-            {loading ? (
-                <div>Loading...</div>
-            ) : (
-                <SlickgridReact
-                    gridId="grid1"
-                    dataset={rows}
-                    columnDefinitions={columnDefs}
-                    gridOptions={gridOptions}
-                    onReactGridCreated={$event => reactGridReady($event.detail)}
-                    onColumnsDrag={(_e, args) => {
-                        console.log("columns dragged", args);
-                      } 
-                    }
-                    customDataView={dataViewObj}
-                    onContextMenu={() => {
-                        setChevron();
-                    }
-                    }
-                    onGridStateChanged={()=>{
-                      console.log('chnge');
-                    }}
-                />
-            )}
-        </div>
-    );
+                  >
+                      <FloatingModal chartType={modal.chartType} data={modal.data} onClose={() => removeModal(index)} />
+                  </div>
+              </Draggable>
+          ))}
+          {pivotTable && (
+            <Dialog size="md" open={pivotTable} >
+              <DialogContent css={
+                {
+                  width:"max-content",
+                  padding:0,
+                  maxHeight:"inherit"
+                }
+              }>
+                <DialogTitle>
+                  <Box css={{
+                    display:"flex",
+                    alignSelf:"flex-end",
+                    background:"#ededed",
+                  }}>
+                    <i className="fa-solid fa-close" onClick={()=>{
+                      setPivotTable(false);
+                    }} style={{
+                      paddingTop:"6px",
+                      paddingLeft:"8px"
+                    }}/>
+                  </Box>
+                </DialogTitle>
+                <DialogDescription css={{
+                  margin:0,
+                }}>
+                  <PivotTable
+                      data={[
+                          ["id", "Where are you living in?", "Which part of the city do you live in?", "Are you male or female?", "Are you married or single?", "value"],
+                          ["id1", "Kochi", "East", "Male", "Married", 2000],
+                          ["id2", "Kochi", "West", "Female", "Single", 1000],
+                          ["id3", "Kochi", "North", "Female", "Married", 3000],
+                          ["id4", "Kochi", "South", "Male", "Single", 4000],
+                          ["id5", "Chennai", "East", "Male", "Married", 2030],
+                          ["id6", "Chennai", "West", "Female", "Married", 402],
+                          ["id7", "Chennai", "North", "Female", "Single", 2334],
+                          ["id8", "Chennai", "South", "Male", "Married", 5467],
+                          ["id9", "Chennai", "East", "Male", "Single", 232],
+                          ["idn", "Chennai", "East", "Male", "Single", 2323],
+                      ]}
+                      rows={["Where are you living in?", "Which part of the city do you live in?"]}
+                      cols={["Are you male or female?", "Are you married or single?"]}
+                      aggregatorName="Sum"
+                      vals={["value", "value"]}
+                  />
+                </DialogDescription>
+              </DialogContent>
+            </Dialog>
+          )}
+          {loading ? (
+              <div>Loading...</div>
+          ) : (
+              <SlickgridReact
+                  gridId="grid1"
+                  dataset={rows}
+                  columnDefinitions={columnDefs}
+                  gridOptions={gridOptions}
+                  onReactGridCreated={($event) => reactGridReady($event.detail)}
+                  onColumnsDrag={(_e, args) => {
+                      console.log("columns dragged", args);
+                  }}
+                  customDataView={dataViewObj}
+                  onContextMenu={() => {
+                      setChevron();
+                  }}
+                  onGridStateChanged={() => {
+                      console.log(gridObj);
+                  }}
+                  // onHeaderCellRendered={(e) => {
+                  //     const el = e.detail.args.node;
+                  //     el.addEventListener("click", () => {
+                  //         console.log(gridObj);
+                  //     });
+                  // }
+                  // }
+              />
+          )}
+      </div>
+  );
 }
 
 export default SlickGridR;
