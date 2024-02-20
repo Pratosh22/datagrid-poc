@@ -15,7 +15,8 @@ import {
   DialogDescription,
   DialogContent,
   Text,
-  DialogClose,
+  Checkbox,
+  Switch
 } from "@sparrowengg/twigs-react";
 
 const StarFormatter = (row, cell, value, columnDef, dataContext) => {
@@ -75,7 +76,7 @@ function SlickGridR() {
     const [dataViewObj, setDataViewObj] = useState(null);
     const [slickgrid, setSlickgrid] = useState(null);
     const [pivotTable, setPivotTable] = useState(false);
-
+    const [columnList, setColumnList] = useState(false);
     const addModal = (chartType, data) => {
       setModals(prevModals => [...prevModals, { chartType, data }]);
     };
@@ -86,10 +87,12 @@ function SlickGridR() {
   
     const [loading, setLoading] = useState(true);
     const [selectedValues, setSelectedValues] = useState([]);
+    const [pivotMode, setPivotMode] = useState([]);
 
     const gridOptions = {
         enableAutoResize:true,
         enableCellNavigation:true,
+        gridWidth: 950,
         cellSelection:true,
         editable: true,
         rowHeight: 50,
@@ -220,6 +223,7 @@ function SlickGridR() {
         });
         populateRowData(columnArr);
         setColumnDefs(columnArr);
+        setPivotMode(columnArr);
     };
     
     const populateRowData = (columnArr) => {
@@ -314,6 +318,98 @@ function SlickGridR() {
     console.log(pivotRowsData, "pivotColumns");
   }
 
+  useEffect(()=>{
+    if(columnList){
+      setColumnDefs([]);
+    } else {
+      populateColumnData();
+    }
+  },[columnList])
+
+
+  const handleCheckboxChange = (index) => {
+    const selectedColumns = [];
+    let field = '';
+    let allowedValues = [];
+
+    const convertGroupsToRow = (val) => {
+      return gridObj.slickGrid.data.rows.map((row) => {
+        const newRow = {
+          id:Math.random().toString(36).substring(7),
+        };
+        if(val === 1){
+          newRow[field] = row.groupingKey;
+        }
+        if(val === 2){
+        // allowedValues = gridObj.slickGrid.data.rows.flatMap((row) => {
+        //   return row?.groups?.map((group) => {
+        //     return group.value;
+        //   });
+        // });
+      }
+        console.log(allowedValues, "allowedValues");
+        return { newRow, allowedValues };
+      });
+    }
+    
+
+    const convert2ndSelectedToColumns = () =>{
+      const allowedValues = gridObj.slickGrid.data.rows.flatMap((row)=>{
+        return row.groups.map((group)=>{
+          return group.value;
+        });
+      });
+      return allowedValues;
+    }
+
+    //2nd time
+    if( columnDefs.length >= 1 ){
+        console.log(gridObj);
+        const newColumnDef = { ...pivotMode[index], name: `sum(${pivotMode[index].name})` };
+        gridObj.dataView.setGrouping([
+            ...gridObj.dataView.getGrouping(),
+            {
+                getter: newColumnDef.params.id.toString(),
+                formatter: (g) => `Title: ${g.value}  <span style="color:green">(${g.count} items)</span>`,
+                aggregateCollapsed: true,
+                collapsed: true,
+            },
+        ]);
+        setColumnDefs((prevColumnDefs) => [...prevColumnDefs, newColumnDef]);
+        console.log(convertGroupsToRow(2));
+        // gridObj.dataView.setGrouping([]);
+        return;
+    }
+    //1st time
+    pivotMode.forEach((columnDef, i) => {
+      if (i === index) {
+        field = columnDef.field;
+        setColumnDefs((prevColumnDefs) => [...prevColumnDefs, columnDef]);
+        gridObj.dataView.setGrouping([ ...gridObj.dataView.getGrouping(), {
+          getter: columnDef.params.id.toString(),
+          formatter: (g) => `Title: ${g.value}  <span style="color:green">(${g.count} items)</span>`,
+          aggregateCollapsed: true,
+          collapsed: true,
+          aggregator: new Aggregators.Sum(columnDef.params.id.toString()),
+        }])
+        const { newRow } = convertGroupsToRow(1);
+        console.log(newRow, "newRow");
+        setRows(newRow);
+      }
+    });
+    
+    // clear grouping
+   
+
+  } 
+
+  useEffect(()=>{
+    const el = document.querySelectorAll('.slick-group-level-1');
+    el.forEach((e) => {
+      e.style.pointerEvents = 'none';
+    });
+  },[])
+
   return (
       <div>
           {modals.map((modal, index) => (
@@ -333,81 +429,151 @@ function SlickGridR() {
               </Draggable>
           ))}
           {pivotTable && (
-            <Dialog size="md" open={pivotTable} >
-              <DialogContent css={
-                {
-                  width:"max-content",
-                  padding:0,
-                  maxHeight:"inherit"
-                }
-              }>
-                <DialogTitle>
-                  <Box css={{
-                    display:"flex",
-                    alignSelf:"flex-end",
-                    background:"#ededed",
-                  }}>
-                    <i className="fa-solid fa-close" onClick={()=>{
-                      setPivotTable(false);
-                    }} style={{
-                      paddingTop:"6px",
-                      paddingLeft:"8px"
-                    }}/>
-                  </Box>
-                </DialogTitle>
-                <DialogDescription css={{
-                  margin:0,
-                }}>
-                  <PivotTable
-                      data={[
-                          ["id", "Where are you living in?", "Which part of the city do you live in?", "Are you male or female?", "Are you married or single?", "value"],
-                          ["id1", "Kochi", "East", "Male", "Married", 2000],
-                          ["id2", "Kochi", "West", "Female", "Single", 1000],
-                          ["id3", "Kochi", "North", "Female", "Married", 3000],
-                          ["id4", "Kochi", "South", "Male", "Single", 4000],
-                          ["id5", "Chennai", "East", "Male", "Married", 2030],
-                          ["id6", "Chennai", "West", "Female", "Married", 402],
-                          ["id7", "Chennai", "North", "Female", "Single", 2334],
-                          ["id8", "Chennai", "South", "Male", "Married", 5467],
-                          ["id9", "Chennai", "East", "Male", "Single", 232],
-                          ["idn", "Chennai", "East", "Male", "Single", 2323],
-                      ]}
-                      rows={["Where are you living in?", "Which part of the city do you live in?"]}
-                      cols={["Are you male or female?", "Are you married or single?"]}
-                      aggregatorName="Sum"
-                      vals={["value", "value"]}
-                  />
-                </DialogDescription>
-              </DialogContent>
-            </Dialog>
+              <Dialog size="md" open={pivotTable}>
+                  <DialogContent
+                      css={{
+                          width: "max-content",
+                          padding: 0,
+                          maxHeight: "inherit",
+                      }}
+                  >
+                      <DialogTitle>
+                          <Box
+                              css={{
+                                  display: "flex",
+                                  alignSelf: "flex-end",
+                                  background: "#ededed",
+                              }}
+                          >
+                              <i
+                                  className="fa-solid fa-close"
+                                  onClick={() => {
+                                      setPivotTable(false);
+                                  }}
+                                  style={{
+                                      paddingTop: "6px",
+                                      paddingLeft: "8px",
+                                  }}
+                              />
+                          </Box>
+                      </DialogTitle>
+                      <DialogDescription
+                          css={{
+                              margin: 0,
+                          }}
+                      >
+                          <PivotTable
+                              data={[
+                                  ["id", "Where are you living in?", "Which part of the city do you live in?", "Are you male or female?", "Are you married or single?", "value"],
+                                  ["id1", "Kochi", "East", "Male", "Married", 2000],
+                                  ["id2", "Kochi", "West", "Female", "Single", 1000],
+                                  ["id3", "Kochi", "North", "Female", "Married", 3000],
+                                  ["id4", "Kochi", "South", "Male", "Single", 4000],
+                                  ["id5", "Chennai", "East", "Male", "Married", 2030],
+                                  ["id6", "Chennai", "West", "Female", "Married", 402],
+                                  ["id7", "Chennai", "North", "Female", "Single", 2334],
+                                  ["id8", "Chennai", "South", "Male", "Married", 5467],
+                                  ["id9", "Chennai", "East", "Male", "Single", 232],
+                                  ["idn", "Chennai", "East", "Male", "Single", 2323],
+                              ]}
+                              rows={["Where are you living in?", "Which part of the city do you live in?"]}
+                              cols={["Are you male or female?", "Are you married or single?"]}
+                              aggregatorName="Sum"
+                              vals={["value", "value"]}
+                          />
+                      </DialogDescription>
+                  </DialogContent>
+              </Dialog>
           )}
           {loading ? (
               <div>Loading...</div>
           ) : (
-              <SlickgridReact
-                  gridId="grid1"
-                  dataset={rows}
-                  columnDefinitions={columnDefs}
-                  gridOptions={gridOptions}
-                  onReactGridCreated={($event) => reactGridReady($event.detail)}
-                  onColumnsDrag={(_e, args) => {
-                      console.log("columns dragged", args);
+              <Box
+                  css={{
+                      display: "flex",
+                      justifyContent: "space-between",
                   }}
-                  customDataView={dataViewObj}
-                  onContextMenu={() => {
-                      setChevron();
-                  }}
-                  onGridStateChanged={() => {
-                      console.log(gridObj);
-                  }}
-                  // onHeaderCellRendered={(e) => {
-                  //     const el = e.detail.args.node;
-                  //     el.addEventListener("click", () => {
-                  //         console.log(gridObj);
-                  //     });
-                  // }
-                  // }
-              />
+              >
+                  <SlickgridReact
+                      gridId="grid1"
+                      dataset={rows}
+                      columnDefinitions={columnDefs}
+                      gridOptions={gridOptions}
+                      onReactGridCreated={($event) => reactGridReady($event.detail)}
+                      onColumnsDrag={(_e, args) => {
+                          console.log("columns dragged", args);
+                      }}
+                      customDataView={dataViewObj}
+                      onContextMenu={() => {
+                          setChevron();
+                      }}
+                      onGridStateChanged={() => {
+                          console.log(gridObj);
+                      }}
+                  />
+                  <Box
+                      id="pivotOption"
+                      css={{
+                          textAlign: "justify",
+                          marginRight: "30px",
+                          marginLeft:"20px"
+                      }}
+                  >
+                    <Box css={{
+                      display: "flex",
+                      alignItems: "center",
+                      flexDirection:"row-reverse",
+                      gap:"8px",
+                      marginTop:"$10",
+                    }}>
+                      <Text css={{ fontSize: "16px" , margin:"0"}}>Pivot Mode</Text>
+                        <Switch
+                            id="pivotSwitch"
+                            label="Pivot Table"
+                            onChange={(e) => {
+                              if(e){
+                                gridObj.slickGrid.setPreHeaderPanelVisibility(false)
+                                setColumnList(e);
+                              } else {
+                                gridObj.slickGrid.setPreHeaderPanelVisibility(true)
+                                gridObj.dataView.setGrouping([]);
+                                setColumnList(e);
+                              }
+                            }}
+                            size="md"
+                        />
+                    </Box>
+                      <Box css={{
+                        marginTop:"32px",
+                        display:"flex",
+                        flexWrap:"wrap",
+                        gap:"32px",
+                      }}>
+                          {columnList &&
+                              pivotMode.map((columnDef, index) => {
+                                  return (
+                                      <Box key={index} css={{
+                                        display: "flex",
+                                        gap:"8px",
+                                        alignItems:"center",
+                                      }}>
+                                          <Checkbox size="md" css={{
+                                            padding:"0"
+                                          }} itemID={index} onChange={(e)=>{
+                                            if(e){
+                                              handleCheckboxChange(index);
+                                            } else {
+                                              setColumnDefs((prevColumnDefs) => prevColumnDefs.filter((columnDef) => columnDef.params.index !== index));
+                                              gridObj.dataView.setGrouping(gridObj.dataView.getGrouping().filter((group) => group.getter !== columnDef.params.id.toString()));
+                                            }
+                                          }}/>
+                                          <Text css={{ cursor: "pointer", margin:"0" }}>{columnDef.name}</Text>
+                                      </Box>
+                                  );
+                              })}
+                      </Box>
+                  </Box>
+              </Box>
           )}
       </div>
   );

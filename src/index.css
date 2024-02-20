@@ -1,6 +1,9 @@
 body{
   font-family: 'DM Sans', sans-serif !important;
 }
+#root{
+  width:100%;
+}
 :root {
   line-height: 1.5;
   font-weight: 400;
