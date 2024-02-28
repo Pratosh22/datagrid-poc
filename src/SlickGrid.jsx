@@ -96,6 +96,8 @@ function SlickGridR() {
   const [pivotTable, setPivotTable] = useState(false);
   const [columnList, setColumnList] = useState(false);
   const [columnCounts, setColumnCounts] = useState({});
+  const [initialRows, setInitialRows] = useState([]);
+  const [count, setCount] = useState(0);
   const addModal = (chartType, data) => {
     setModals((prevModals) => [...prevModals, { chartType, data }]);
   };
@@ -359,6 +361,7 @@ function SlickGridR() {
       newRows.push(newRow);
     });
     setRows(newRows);
+    setInitialRows(newRows);
     setLoading(false);
   };
 
@@ -372,10 +375,10 @@ function SlickGridR() {
     setSlickgrid(reactGridInstance.slickGrid);
   };
 
-  useEffect(() => {
-    console.log(gridObj, "gridObj");
-    setGridObj(gridObj);
-  }, [gridObj]);
+  // useEffect(() => {
+  //   console.log(gridObj, "gridObj");
+  //   setGridObj(gridObj);
+  // }, [gridObj]);
 
   const setChevron = () => {
     const chevron = document.getElementsByClassName("sub-item-chevron");
@@ -424,48 +427,67 @@ function SlickGridR() {
     if (columnList) {
       setColumnDefs([]);
     } else {
+      setCount(0);
       populateColumnData();
     }
   }, [columnList]);
 
-  const handleCheckboxChange = (index) => {
+  const handleCheckboxChange = (index,column, value) => {
     let field = "";
-
+    console.log(column);
+    const tempColumnDefs = [];
     //2nd time
     if (columnDefs.length >= 1) {
-      console.log(gridObj);
-
       const newColumnDef = {
-        ...pivotMode[index],
-        name: pivotMode[index].name,
+        ...column,
       };
       const field = newColumnDef.field;
       //get all unique values of rows with field
       const values = [];
-      rows.forEach((row) => {
+      initialRows.forEach((row) => {
         if (row[field] && !values.includes(row[field])) {
           values.push(row[field]);
         }
       });
       //sort values
       values.sort();
-      //create columns for each value
-      values.forEach((value) => {
+      if (value) {
         const newColumn = {
-          id: Math.floor(Math.random()).toString(),
+          id: Math.random().toString(36).substring(7),
           name: `sum(${value})`,
-          field: `${newColumnDef.field}`,
-          params: { ...newColumnDef.params, value },
+          field: `${value}`,
+          params: {
+            ...newColumnDef.params,
+            value,
+            parentColumn: newColumnDef.field,
+          },
           columnGroup: `${newColumnDef.name}`,
         };
         setColumnDefs((prevColumnDefs) => [...prevColumnDefs, newColumn]);
-      });
-      // gridObj.dataView.setGrouping([]);
-      return;
+        tempColumnDefs.push(newColumn);
+      } else {
+        values.forEach((value) => {
+          const newColumn = {
+            id: Math.random().toString(36).substring(7),
+            name: `sum(${value})`,
+            field: `${value}`,
+            params: {
+              ...newColumnDef.params,
+              value,
+              parentColumn: newColumnDef.field,
+            },
+            columnGroup: `${newColumnDef.name}`,
+          };
+          setColumnDefs((prevColumnDefs) => [...prevColumnDefs, newColumn]);
+          tempColumnDefs.push(newColumn);
+        });
+        // gridObj.dataView.setGrouping([]);
+      }
     }
     //1st time
     pivotMode.forEach((columnDef, i) => {
-      if (i === index) {
+      if (columnDef.field === column.field && count === 0) {
+        setCount((prevCount) => prevCount + 1);
         field = columnDef.field;
         const values = [];
         const valueCounts = {}; // object to store counts of each value
@@ -486,17 +508,45 @@ function SlickGridR() {
               (row, index, self) =>
                 index === self.findIndex((r) => r[field] === row[field])
             )
-            .map((row) => ({
-              ...row,
-              [field]: `${row[field]} (${valueCounts[row[field]]})`,
-            }));
         });
-        console.log(values, "values");
         setColumnDefs((prevColumnDefs) => [...prevColumnDefs, columnDef]);
+        tempColumnDefs.push(columnDef);
       }
     });
-
+    console.log(tempColumnDefs, "tempColumnDefs");
+    const firstColumn = columnDefs[0]?.field;
+    const secondColumn = tempColumnDefs[0]?.params.id;
+    console.log(firstColumn, secondColumn, "firstColumn, secondColumn");
     //calucate sum of first column with values of second column
+    if( firstColumn && secondColumn) {
+      let sum = [];
+      initialRows.forEach((row) => {
+        const value = row[firstColumn];
+        const value2 = parseInt(row[secondColumn]);
+        if (value && value2) {
+          //create object with value as key , value2 as another key and sum of value2
+          if (!sum[value]) {
+            sum[value] = {};
+          }
+          if (!sum[value][value2]) {
+            sum[value][value2] = 0;
+          }
+          sum[value][value2] += value2;
+        }
+      });
+      console.log(sum, "sum");
+      let resultRows = rows.map((row) => {
+        Object.entries(sum).forEach(([key, value]) => {
+          if (row[firstColumn] === key) {
+            Object.entries(value).forEach(([k, v]) => {
+              row[k] = v;
+            });
+          }
+        });
+        return row;
+      });
+      console.log(resultRows, "resultRows");
+    }
   };
   useEffect(() => {
     const el = document.querySelectorAll(".slick-group-level-1");
@@ -505,10 +555,18 @@ function SlickGridR() {
     });
   }, []);
 
-  const handleCheckboxUncheck = (index) => {
-    setColumnDefs((prevColumnDefs) =>
-      prevColumnDefs.filter((columnDef) => columnDef.params.index !== index)
-    );
+  const handleCheckboxUncheck = (index,column,value) => {
+    if(value){
+      setColumnDefs((prevColumnDefs) =>
+        prevColumnDefs.filter((columnDef) => columnDef.params?.value !== value)
+      );
+    }else{
+      console.log(column, "column");
+      setColumnDefs((prevColumnDefs) =>
+        prevColumnDefs.filter((columnDef) => columnDef.field !== column.field)
+      );
+    }
+    setCount(0);
   }
 
   return (
@@ -622,9 +680,9 @@ function SlickGridR() {
             onContextMenu={() => {
               setChevron();
             }}
-            onGridStateChanged={() => {
-              console.log(gridObj);
-            }}
+            // onGridStateChanged={() => {
+            //   console.log(gridObj);
+            // }}
             onDrag={(_e, args) => {
               console.log("drag", args);
             }}
@@ -688,6 +746,7 @@ function SlickGridR() {
                         handleCheckboxChange={handleCheckboxChange}
                         handleCheckboxUncheck={handleCheckboxUncheck}
                         text={columnDef.name}
+                        columnDef={columnDef}
                         css={{
                           display: "flex",
                           gap: "8px",
@@ -728,7 +787,7 @@ function SlickGridR() {
 
 export default SlickGridR;
 
-const CheckboxWithText = ({ index, handleCheckboxChange, text, handleCheckboxUncheck, css = {
+const CheckboxWithText = ({ index, handleCheckboxChange, text, columnDef, value,handleCheckboxUncheck, css = {
   display: "flex",
   gap: "8px",
 } }) => (
@@ -739,9 +798,9 @@ const CheckboxWithText = ({ index, handleCheckboxChange, text, handleCheckboxUnc
       itemID={index}
       onChange={(e) => {
         if (e) {
-          handleCheckboxChange(index);
+          handleCheckboxChange(index, columnDef,value);
         } else {
-          handleCheckboxUncheck(index);
+          handleCheckboxUncheck(index, columnDef,value);
         }
       }}
     />
@@ -783,6 +842,7 @@ const Dropdown = ({ columnDef, index, handleCheckboxChange, handleCheckboxUnchec
               key={index}
               index={index}
               handleCheckboxChange={handleCheckboxChange}
+              columnDef={columnDef}
               handleCheckboxUncheck={handleCheckboxUncheck}
               text={choice.txt}
             />
@@ -826,6 +886,8 @@ const Rating = ({ columnDef, index, handleCheckboxChange, handleCheckboxUncheck 
             <CheckboxWithText
               key={index}
               index={index}
+              columnDef={columnDef}
+              value={value}
               handleCheckboxChange={handleCheckboxChange}
               handleCheckboxUncheck={handleCheckboxUncheck}
               text={value}
@@ -869,7 +931,9 @@ const OpinionScale = ({ columnDef, index, handleCheckboxChange, handleCheckboxUn
           {[1, 2, 3, 4, 5, 6 , 7, 8, 9 ,10].map((value, index) => (
             <CheckboxWithText
               key={index}
+              columnDef={columnDef}
               index={index}
+              value={value}
               handleCheckboxChange={handleCheckboxChange}
               handleCheckboxUncheck={handleCheckboxUncheck}
               text={value}
