@@ -7,9 +7,6 @@ import {
   FieldType,
   Filters,
   GroupTotalFormatters,
-  Aggregators,
-  SlickDataView,
-  SlickGrid,
 } from "slickgrid-react";
 import { SlickCustomTooltip } from "@slickgrid-universal/custom-tooltip-plugin";
 import { questions, responses } from "./responses.json";
@@ -28,10 +25,6 @@ import {
   Text,
   Checkbox,
   Switch,
-  Drawer,
-  DrawerHeader,
-  DrawerFooter,
-  DrawerBody
 } from "@sparrowengg/twigs-react";
 
 const StarFormatter = (row, cell, value, columnDef, dataContext) => {
