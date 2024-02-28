@@ -95,9 +95,8 @@ function SlickGridR() {
   const [slickgrid, setSlickgrid] = useState(null);
   const [pivotTable, setPivotTable] = useState(false);
   const [columnList, setColumnList] = useState(false);
-  const [columnCounts, setColumnCounts] = useState({});
   const [initialRows, setInitialRows] = useState([]);
-  const [count, setCount] = useState(0);
+
   const addModal = (chartType, data) => {
     setModals((prevModals) => [...prevModals, { chartType, data }]);
   };
@@ -203,8 +202,8 @@ function SlickGridR() {
             console.log(e, args, "copy");
             document.execCommand("copy");
           },
-        },
-      ],
+        }
+      ]
     },
     enableFiltering: true,
     enableGrouping: true,
@@ -427,7 +426,6 @@ function SlickGridR() {
     if (columnList) {
       setColumnDefs([]);
     } else {
-      setCount(0);
       populateColumnData();
     }
   }, [columnList]);
@@ -486,8 +484,7 @@ function SlickGridR() {
     }
     //1st time
     pivotMode.forEach((columnDef, i) => {
-      if (columnDef.field === column.field && count === 0) {
-        setCount((prevCount) => prevCount + 1);
+      if (columnDef.field === column.field && columnDefs.length === 0) {
         field = columnDef.field;
         const values = [];
         const valueCounts = {}; // object to store counts of each value
@@ -522,16 +519,22 @@ function SlickGridR() {
       let sum = [];
       initialRows.forEach((row) => {
         const value = row[firstColumn];
-        const value2 = parseInt(row[secondColumn]);
+        let value2 = row[secondColumn];
         if (value && value2) {
-          //create object with value as key , value2 as another key and sum of value2
+          let parsedValue2 = parseInt(value2);
+          if (isNaN(parsedValue2)) {
+            // If value2 cannot be parsed to a number, treat it as a string
+            parsedValue2 = value2;
+          }
+          //create object with value as key , parsedValue2 as another key and sum of parsedValue2
           if (!sum[value]) {
             sum[value] = {};
           }
-          if (!sum[value][value2]) {
-            sum[value][value2] = 0;
+          if (!sum[value][parsedValue2]) {
+            sum[value][parsedValue2] = 0; // Initialize as 0 for both numbers and strings
           }
-          sum[value][value2] += value2;
+          // Increment the count
+          sum[value][parsedValue2]++;
         }
       });
       console.log(sum, "sum");
@@ -563,10 +566,9 @@ function SlickGridR() {
     }else{
       console.log(column, "column");
       setColumnDefs((prevColumnDefs) =>
-        prevColumnDefs.filter((columnDef) => columnDef.field !== column.field)
+        prevColumnDefs.filter((columnDef) => columnDef.params.id != column.field)
       );
     }
-    setCount(0);
   }
 
   return (
@@ -843,6 +845,7 @@ const Dropdown = ({ columnDef, index, handleCheckboxChange, handleCheckboxUnchec
               index={index}
               handleCheckboxChange={handleCheckboxChange}
               columnDef={columnDef}
+              value={choice.txt}
               handleCheckboxUncheck={handleCheckboxUncheck}
               text={choice.txt}
             />
