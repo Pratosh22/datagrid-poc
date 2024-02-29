@@ -17,7 +17,9 @@ function FloatingModal({ chartType, data, onClose }) {
 
     useEffect(() => {
         const newChartData = [];
-        const counts = Array.from({length: 11}, () => 0); // Initialize an array of zeros with length 11 (for scale 0-10)
+        const maxVal = Math.max(...Object.values(data).flat().map((response) => Number(response.value)));
+        console.log(maxVal, "maxVal");
+        const counts = Array.from({length: maxVal+1}, () => 0); 
     
         Object.keys(data).forEach(key => {
             data[key].forEach(response => {

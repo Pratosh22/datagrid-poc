@@ -26,7 +26,7 @@ import {
   Checkbox,
   Switch,
 } from "@sparrowengg/twigs-react";
-
+import Select from "react-select";
 const StarFormatter = (row, cell, value, columnDef, dataContext) => {
   const stars = [];
   for (let i = 0; i < value; i++) {
@@ -81,9 +81,15 @@ const chartSelect = (
   console.log(values, "selected rows");
 };
 
-// const headerFormatter = (row, cell, value, column) => {
-//   return `<div class="tooltip-2cols-row">${column.params.name}</div>`;
-// }
+const headerFormatter = (row, cell, value, column) => {
+  return `<div class="tooltip-2cols-row">${column.params.name}</div>`;
+}
+
+const pivotTypes = {
+  SUM: "sum",
+  AVG: "avg",
+  COUNT: "count",
+};
 
 function SlickGridR() {
   const [columnDefs, setColumnDefs] = useState([]);
@@ -96,7 +102,7 @@ function SlickGridR() {
   const [pivotTable, setPivotTable] = useState(false);
   const [columnList, setColumnList] = useState(false);
   const [initialRows, setInitialRows] = useState([]);
-
+  const [pivotType, setPivotType] = useState(pivotTypes.SUM);
   const addModal = (chartType, data) => {
     setModals((prevModals) => [...prevModals, { chartType, data }]);
   };
@@ -112,7 +118,7 @@ function SlickGridR() {
   const gridOptions = {
     enableAutoResize: true,
     enableCellNavigation: true,
-    gridWidth: 1500,
+    gridWidth: 1450,
     cellSelection: true,
     editable: true,
     rowHeight: 50,
@@ -221,9 +227,9 @@ function SlickGridR() {
       pageSize: 20,
     },
     externalResources: [new SlickCustomTooltip()],
-    // customTooltip: {
-    //   headerFormatter: headerFormatter,
-    // }
+    customTooltip: {
+      headerFormatter: headerFormatter,
+    }
   };
   const populateColumnData = () => {
     const columnArr = [];
@@ -450,25 +456,56 @@ function SlickGridR() {
       //sort values
       values.sort();
       if (value) {
-        const newColumn = {
-          id: Math.random().toString(36).substring(7),
-          name: `sum(${value})`,
-          field: `${value}`,
-          params: {
-            ...newColumnDef.params,
-            value,
-            parentColumn: newColumnDef.field,
-          },
-          columnGroup: `${newColumnDef.name}`,
-        };
-        setColumnDefs((prevColumnDefs) => [...prevColumnDefs, newColumn]);
-        tempColumnDefs.push(newColumn);
+        if (pivotType === pivotTypes.AVG) {
+          const newColumn = {
+            id: Math.random().toString(36).substring(7),
+            name: `${"avg"}(${newColumnDef.name})`,
+            field: `${"avg"}-${newColumnDef.field}`,
+            sortable: true,
+            params: {
+              ...newColumnDef.params,
+            },
+          };
+          pivotMode.forEach((columnDef, i) => {
+            if (columnDef.field === column.field) {
+              setColumnDefs((prevColumnDefs) => [...prevColumnDefs, newColumn]);
+            }
+          });
+          tempColumnDefs.push(newColumn);
+        } else if (
+          pivotType === pivotTypes.COUNT ||
+          pivotType === pivotTypes.SUM
+        ) {
+          const newColumn = {
+            id: Math.random().toString(36).substring(7),
+            name: `${
+              pivotType === pivotTypes.SUM
+                ? "sum"
+                : pivotType === pivotTypes.AVG
+                ? "avg"
+                : pivotType === pivotTypes.COUNT
+                ? "count"
+                : ""
+            }(${value})`,
+            field: `${value}-${newColumnDef.field}`,
+            sortable: true,
+            params: {
+              ...newColumnDef.params,
+              value,
+              parentColumn: newColumnDef.field,
+            },
+            columnGroup: `${newColumnDef.name}`,
+          };
+          setColumnDefs((prevColumnDefs) => [...prevColumnDefs, newColumn]);
+          tempColumnDefs.push(newColumn);
+        }
       } else {
         values.forEach((value) => {
           const newColumn = {
             id: Math.random().toString(36).substring(7),
-            name: `sum(${value})`,
-            field: `${value}`,
+            name: `${pivotType === pivotTypes.SUM ? "sum" : "avg"}(${value})`,
+            field: `${value}-${newColumnDef.field}`,
+            sortable: true,
             params: {
               ...newColumnDef.params,
               value,
@@ -500,11 +537,10 @@ function SlickGridR() {
         // remove duplicate values in rows which match field and add value counts
         setRows((prevRows) => {
           // keep only rows where the field property is unique
-          return prevRows
-            .filter(
-              (row, index, self) =>
-                index === self.findIndex((r) => r[field] === row[field])
-            )
+          return prevRows.filter(
+            (row, index, self) =>
+              index === self.findIndex((r) => r[field] === row[field])
+          );
         });
         setColumnDefs((prevColumnDefs) => [...prevColumnDefs, columnDef]);
         tempColumnDefs.push(columnDef);
@@ -514,9 +550,13 @@ function SlickGridR() {
     const firstColumn = columnDefs[0]?.field;
     const secondColumn = tempColumnDefs[0]?.params.id;
     console.log(firstColumn, secondColumn, "firstColumn, secondColumn");
-    //calucate sum of first column with values of second column
-    if( firstColumn && secondColumn) {
+    if (
+      firstColumn &&
+      secondColumn &&
+      (pivotType === pivotTypes.SUM || pivotType === pivotTypes.COUNT)
+    ) {
       let sum = [];
+      let count = [];
       initialRows.forEach((row) => {
         const value = row[firstColumn];
         let value2 = row[secondColumn];
@@ -529,26 +569,90 @@ function SlickGridR() {
           //create object with value as key , parsedValue2 as another key and sum of parsedValue2
           if (!sum[value]) {
             sum[value] = {};
+            count[value] = {};
           }
           if (!sum[value][parsedValue2]) {
-            sum[value][parsedValue2] = 0; // Initialize as 0 for both numbers and strings
+            sum[value][parsedValue2] = isNaN(parsedValue2) ? value2 : 0; // Initialize as 0 for numbers and value2 for strings
+            count[value][parsedValue2] = 0;
           }
-          // Increment the count
-          sum[value][parsedValue2]++;
+          // Increment the sum and count
+          if (!isNaN(parsedValue2)) {
+            sum[value][parsedValue2] += parsedValue2;
+          }
+          count[value][parsedValue2]++;
         }
       });
       console.log(sum, "sum");
+      console.log(count, "count");
       let resultRows = rows.map((row) => {
         Object.entries(sum).forEach(([key, value]) => {
           if (row[firstColumn] === key) {
             Object.entries(value).forEach(([k, v]) => {
-              row[k] = v;
+              // Calculate the average, sum or count based on pivotType
+              if (pivotType === pivotTypes.AVG) {
+                row[k + `-${column.field}`] = v / count[key][k];
+              } else if (pivotType === pivotTypes.SUM) {
+                //if value is string, set sum as count[key][k]
+                if(isNaN(k)) {
+                  row[k + `-${column.field}`] = count[key][k];
+                }else{
+                  row[k + `-${column.field}`] = sum[key][k];
+                }
+              } else if (pivotType === pivotTypes.COUNT) {
+                row[k + `-${column.field}`] = count[key][k];
+              }
             });
           }
         });
         return row;
       });
       console.log(resultRows, "resultRows");
+    } else {
+      let total = [];
+      let count = [];
+      initialRows.forEach((row) => {
+        const value = row[firstColumn];
+        let value2 = row[secondColumn];
+        if (value && value2) {
+          let parsedValue2 = parseInt(value2);
+          if (isNaN(parsedValue2)) {
+            // If value2 cannot be parsed to a number, treat it as a string
+            parsedValue2 = value2;
+          }
+          //create object with value as key , parsedValue2 as another key and sum of parsedValue2
+          if (!total[value]) {
+            total[value] = {};
+            count[value] = {};
+          }
+          if (!total[value][parsedValue2]) {
+            total[value][parsedValue2] = isNaN(parsedValue2) ? value2 : 0; // Initialize as 0 for numbers and value2 for strings
+            count[value][parsedValue2] = 0;
+          }
+          // Increment the sum and count
+          if (!isNaN(parsedValue2)) {
+            total[value][parsedValue2] += parsedValue2;
+          }
+          count[value][parsedValue2]++;
+        }
+      });
+
+      let resultRows = rows.map((row) => {
+        Object.entries(total).forEach(([key, value]) => {
+          if (row[firstColumn] === key) {
+            Object.entries(value).forEach(([k, v]) => {
+              let totalSum = 0;
+              let totalCount = 0;
+              Object.entries(count[key]).forEach(([rating, ratingCount]) => {
+                totalSum += Number(rating) * ratingCount;
+                totalCount += ratingCount;
+              });
+              row["avg" + `-${column.field}`] = (totalSum / totalCount).toFixed(2);
+            });
+          }
+        });
+        return row;
+      });
+      console.log(count);
     }
   };
   useEffect(() => {
@@ -558,18 +662,28 @@ function SlickGridR() {
     });
   }, []);
 
-  const handleCheckboxUncheck = (index,column,value) => {
-    if(value){
+  const handleCheckboxUncheck = (index, column, value) => {
+    if (value && pivotType !== pivotTypes.AVG) {
       setColumnDefs((prevColumnDefs) =>
-        prevColumnDefs.filter((columnDef) => columnDef.params?.value !== value)
+        prevColumnDefs.filter(
+          (columnDef) => columnDef.field !== `${value}-${column.field}`
+        )
       );
-    }else{
+    } else if(pivotType === pivotTypes.AVG) {
+      setColumnDefs((prevColumnDefs) =>
+        prevColumnDefs.filter(
+          (columnDef) => columnDef.field !== `${"avg"}-${column.field}`
+        )
+      );
+    } else {
       console.log(column, "column");
       setColumnDefs((prevColumnDefs) =>
-        prevColumnDefs.filter((columnDef) => columnDef.params.id != column.field)
+        prevColumnDefs.filter(
+          (columnDef) => columnDef.params.id != column.field
+        )
       );
     }
-  }
+  };
 
   return (
     <div>
@@ -689,96 +803,123 @@ function SlickGridR() {
               console.log("drag", args);
             }}
           />
-          <Box
-            id="pivotOption"
-            css={{
-              textAlign: "justify",
-              marginRight: "30px",
-              paddingLeft: "20px",
-              borderLeft: "1px solid #e0e0e0",
-              width:"250px"
-            }}
-          >
+          <Box css={{
+            paddingBottom: "20px",
+            borderLeft: "1px solid #e0e0e0",
+          }}>
             <Box
+              id="pivotOption"
               css={{
-                display: "flex",
-                alignItems: "center",
-                flexDirection: "row-reverse",
-                justifyContent:"flex-end",
-                gap: "8px",
-                marginTop: "$10",
-                marginBottom: "$10",
+                textAlign: "justify",
+                paddingLeft: "20px",
+                width: "300px",
+                maxHeight:"100vh",
+                overflowY:"scroll",
+                "::-webkit-scrollbar": "hidden",
               }}
             >
-              <Text css={{ fontSize: "16px", margin: "0" }}>Pivot Mode</Text>
-              <Switch
-                id="pivotSwitch"
-                label="Pivot Table"
-                onChange={(e) => {
-                  if (e) {
-                    setColumnList(e);
-                  } else {
-                    setColumnList(e);
-                  }
+              <Box
+                css={{
+                  gap: "26px",
+                  display: "flex",
+                  alignItems: "center",
                 }}
-                size="md"
-              />
-            </Box>
-            <Box
-              css={{
-                marginTop: "32px",
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "32px",
-              }}
-            >
-              {columnList &&
-                pivotMode.map((columnDef, index) => (
-                  <Box
-                    key={index}
-                    css={{
-                      display: "flex",
-                      gap: "8px",
-                      alignItems: "center",
+              >
+                <Box
+                  css={{
+                    display: "flex",
+                    alignItems: "center",
+                    flexDirection: "row-reverse",
+                    justifyContent: "flex-end",
+                    gap: "8px",
+                    marginTop: "$10",
+                    marginBottom: "$10",
+                  }}
+                >
+                  <Switch
+                    id="pivotSwitch"
+                    label="Pivot Table"
+                    onChange={(e) => {
+                      if (e) {
+                        setColumnList(e);
+                      } else {
+                        setColumnList(e);
+                      }
                     }}
-                  >
-                    {columnDef.params.type === "TextInput" ? (
-                      <CheckboxWithText
-                        index={index}
-                        handleCheckboxChange={handleCheckboxChange}
-                        handleCheckboxUncheck={handleCheckboxUncheck}
-                        text={columnDef.name}
-                        columnDef={columnDef}
-                        css={{
-                          display: "flex",
-                          gap: "8px",
-                          alignItems: "center",
-                        }}
-                      />
-                    ) : columnDef.params.type === "MultiChoice" ? (
-                      <Dropdown
-                        columnDef={columnDef}
-                        index={index}
-                        handleCheckboxChange={handleCheckboxChange}
-                        handleCheckboxUncheck={handleCheckboxUncheck}
-                      />
-                    ) : columnDef.params.type === "Rating" ? (
-                      <Rating
-                        columnDef={columnDef}
-                        index={index}
-                        handleCheckboxChange={handleCheckboxChange}
-                        handleCheckboxUncheck={handleCheckboxUncheck}
-                      />
-                    ) : columnDef.params.type === "OpinionScale" ? (
-                      <OpinionScale
-                        columnDef={columnDef}
-                        index={index}
-                        handleCheckboxChange={handleCheckboxChange}
-                        handleCheckboxUncheck={handleCheckboxUncheck}
-                      />
-                    ) : null}
-                  </Box>
-                ))}
+                    size="md"
+                  />
+                  <Text css={{ fontSize: "16px", margin: "0" }}>Pivot Mode</Text>
+                </Box>
+                <Select
+                  options={[
+                    { value: pivotTypes.SUM, label: "Sum" },
+                    { value: pivotTypes.AVG, label: "Average" },
+                    { value: pivotTypes.COUNT, label: "Count" },
+                  ]}
+                  defaultValue={{ value: pivotTypes.SUM, label: "Sum" }}
+                  onChange={(e) => {
+                    setPivotType(e.value);
+                  }}
+                />
+              </Box>
+              <Box
+                css={{
+                  marginTop: "32px",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "32px",
+                }}
+              >
+                {columnList &&
+                  pivotMode.map((columnDef, index) => (
+                    <Box
+                      key={index}
+                      css={{
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "center",
+                      }}
+                    >
+                      {columnDef.params.type === "TextInput" ? (
+                        <CheckboxWithText
+                          index={index}
+                          handleCheckboxChange={handleCheckboxChange}
+                          handleCheckboxUncheck={handleCheckboxUncheck}
+                          text={columnDef.name}
+                          columnDef={columnDef}
+                          css={{
+                            display: "flex",
+                            gap: "8px",
+                            alignItems: "center",
+                          }}
+                        />
+                      ) : columnDef.params.type === "MultiChoice" ? (
+                        <Dropdown
+                          columnDef={columnDef}
+                          index={index}
+                          handleCheckboxChange={handleCheckboxChange}
+                          handleCheckboxUncheck={handleCheckboxUncheck}
+                        />
+                      ) : columnDef.params.type === "Rating" ? (
+                        <Rating
+                          columnDef={columnDef}
+                          index={index}
+                          pivotType={pivotType}
+                          handleCheckboxChange={handleCheckboxChange}
+                          handleCheckboxUncheck={handleCheckboxUncheck}
+                        />
+                      ) : columnDef.params.type === "OpinionScale" ? (
+                        <OpinionScale
+                          columnDef={columnDef}
+                          index={index}
+                          pivotType={pivotType}
+                          handleCheckboxChange={handleCheckboxChange}
+                          handleCheckboxUncheck={handleCheckboxUncheck}
+                        />
+                      ) : null}
+                    </Box>
+                  ))}
+              </Box>
             </Box>
           </Box>
         </Box>
@@ -789,10 +930,18 @@ function SlickGridR() {
 
 export default SlickGridR;
 
-const CheckboxWithText = ({ index, handleCheckboxChange, text, columnDef, value,handleCheckboxUncheck, css = {
-  display: "flex",
-  gap: "8px",
-} }) => (
+const CheckboxWithText = ({
+  index,
+  handleCheckboxChange,
+  text,
+  columnDef,
+  value,
+  handleCheckboxUncheck,
+  css = {
+    display: "flex",
+    gap: "8px",
+  },
+}) => (
   <Box css={css}>
     <Checkbox
       size="md"
@@ -800,9 +949,9 @@ const CheckboxWithText = ({ index, handleCheckboxChange, text, columnDef, value,
       itemID={index}
       onChange={(e) => {
         if (e) {
-          handleCheckboxChange(index, columnDef,value);
+          handleCheckboxChange(index, columnDef, value);
         } else {
-          handleCheckboxUncheck(index, columnDef,value);
+          handleCheckboxUncheck(index, columnDef, value);
         }
       }}
     />
@@ -810,15 +959,22 @@ const CheckboxWithText = ({ index, handleCheckboxChange, text, columnDef, value,
   </Box>
 );
 
-const Dropdown = ({ columnDef, index, handleCheckboxChange, handleCheckboxUncheck }) => {
+const Dropdown = ({
+  columnDef,
+  index,
+  handleCheckboxChange,
+  handleCheckboxUncheck,
+}) => {
   const [showCheckboxes, setShowCheckboxes] = useState(false);
 
   return (
-    <Box css={{
-      display: "flex",
-      flexDirection: "column",
-      gap:"$3",
-    }}>
+    <Box
+      css={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "$3",
+      }}
+    >
       <Box
         css={{
           display: "flex",
@@ -826,19 +982,23 @@ const Dropdown = ({ columnDef, index, handleCheckboxChange, handleCheckboxUnchec
           alignItems: "center",
         }}
       >
-        <i 
-          className={`fa-solid ${!showCheckboxes ? 'fa-chevron-right': 'fa-chevron-down'}`}
+        <i
+          className={`fa-solid ${
+            !showCheckboxes ? "fa-chevron-right" : "fa-chevron-down"
+          }`}
           style={{ cursor: "pointer" }}
           onClick={() => setShowCheckboxes(!showCheckboxes)}
         ></i>
         <Text css={{ cursor: "pointer", margin: "0" }}>{columnDef.name}</Text>
       </Box>
       {showCheckboxes && (
-        <Box css={{
-          display: "flex",
-          flexDirection: "column",
-          gap:"$4"
-        }}>
+        <Box
+          css={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "$4",
+          }}
+        >
           {columnDef.params?.choices.map((choice, index) => (
             <CheckboxWithText
               key={index}
@@ -856,15 +1016,23 @@ const Dropdown = ({ columnDef, index, handleCheckboxChange, handleCheckboxUnchec
   );
 };
 
-const Rating = ({ columnDef, index, handleCheckboxChange, handleCheckboxUncheck }) => {
+const Rating = ({
+  columnDef,
+  index,
+  handleCheckboxChange,
+  handleCheckboxUncheck,
+  pivotType
+}) => {
   const [showCheckboxes, setShowCheckboxes] = useState(false);
 
   return (
-    <Box css={{
-      display: "flex",
-      flexDirection: "column",
-      gap:"$3",
-    }}>
+    <Box
+      css={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "$3",
+      }}
+    >
       <Box
         css={{
           display: "flex",
@@ -872,20 +1040,24 @@ const Rating = ({ columnDef, index, handleCheckboxChange, handleCheckboxUncheck 
           alignItems: "center",
         }}
       >
-        <i 
-          className={`fa-solid ${!showCheckboxes ? 'fa-chevron-right': 'fa-chevron-down'}`}
+        <i
+          className={`fa-solid ${
+            !showCheckboxes ? "fa-chevron-right" : "fa-chevron-down"
+          }`}
           style={{ cursor: "pointer" }}
           onClick={() => setShowCheckboxes(!showCheckboxes)}
         ></i>
         <Text css={{ cursor: "pointer", margin: "0" }}>{columnDef.name}</Text>
       </Box>
       {showCheckboxes && (
-        <Box css={{
-          display: "flex",
-          flexDirection: "column",
-          gap:"$4"
-        }}>
-          {[1, 2, 3, 4, 5].map((value, index) => (
+        <Box
+          css={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "$4",
+          }}
+        >
+          {(pivotType === pivotTypes.AVG ? [1] : [1, 2, 3, 4, 5]).map((value, index) => (
             <CheckboxWithText
               key={index}
               index={index}
@@ -902,15 +1074,23 @@ const Rating = ({ columnDef, index, handleCheckboxChange, handleCheckboxUncheck 
   );
 };
 
-const OpinionScale = ({ columnDef, index, handleCheckboxChange, handleCheckboxUncheck }) => {
+const OpinionScale = ({
+  columnDef,
+  index,
+  handleCheckboxChange,
+  handleCheckboxUncheck,
+  pivotType
+}) => {
   const [showCheckboxes, setShowCheckboxes] = useState(false);
 
   return (
-    <Box css={{
-      display: "flex",
-      flexDirection: "column",
-      gap:"$3",
-    }}>
+    <Box
+      css={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "$3",
+      }}
+    >
       <Box
         css={{
           display: "flex",
@@ -918,20 +1098,24 @@ const OpinionScale = ({ columnDef, index, handleCheckboxChange, handleCheckboxUn
           alignItems: "center",
         }}
       >
-        <i 
-          className={`fa-solid ${!showCheckboxes ? 'fa-chevron-right': 'fa-chevron-down'}`}
+        <i
+          className={`fa-solid ${
+            !showCheckboxes ? "fa-chevron-right" : "fa-chevron-down"
+          }`}
           style={{ cursor: "pointer" }}
           onClick={() => setShowCheckboxes(!showCheckboxes)}
         ></i>
         <Text css={{ cursor: "pointer", margin: "0" }}>{columnDef.name}</Text>
       </Box>
       {showCheckboxes && (
-        <Box css={{
-          display: "flex",
-          flexDirection: "column",
-          gap:"$4"
-        }}>
-          {[1, 2, 3, 4, 5, 6 , 7, 8, 9 ,10].map((value, index) => (
+        <Box
+          css={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "$4",
+          }}
+        >
+          {(pivotType === pivotTypes.AVG ? [1] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).map((value, index) => (
             <CheckboxWithText
               key={index}
               columnDef={columnDef}
