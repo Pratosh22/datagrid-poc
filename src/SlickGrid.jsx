@@ -663,13 +663,13 @@ function SlickGridR() {
   }, []);
 
   const handleCheckboxUncheck = (index, column, value) => {
-    if (value && pivotType !== pivotTypes.AVG) {
+    if (value && pivotType !== pivotTypes.AVG && columnDefs.length > 1) {
       setColumnDefs((prevColumnDefs) =>
         prevColumnDefs.filter(
           (columnDef) => columnDef.field !== `${value}-${column.field}`
         )
       );
-    } else if(pivotType === pivotTypes.AVG) {
+    } else if(value && pivotType === pivotTypes.AVG && columnDefs.length > 1) {
       setColumnDefs((prevColumnDefs) =>
         prevColumnDefs.filter(
           (columnDef) => columnDef.field !== `${"avg"}-${column.field}`
@@ -679,7 +679,7 @@ function SlickGridR() {
       console.log(column, "column");
       setColumnDefs((prevColumnDefs) =>
         prevColumnDefs.filter(
-          (columnDef) => columnDef.params.id != column.field
+          (columnDef) => columnDef.params.id != column.field 
         )
       );
     }
@@ -813,6 +813,7 @@ function SlickGridR() {
                 textAlign: "justify",
                 paddingLeft: "20px",
                 width: "300px",
+                height:"fit-content",
                 maxHeight:"100vh",
                 overflowY:"scroll",
                 "::-webkit-scrollbar": "hidden",
@@ -897,6 +898,7 @@ function SlickGridR() {
                         <Dropdown
                           columnDef={columnDef}
                           index={index}
+                          pivotType={pivotType}
                           handleCheckboxChange={handleCheckboxChange}
                           handleCheckboxUncheck={handleCheckboxUncheck}
                         />
@@ -964,6 +966,7 @@ const Dropdown = ({
   index,
   handleCheckboxChange,
   handleCheckboxUncheck,
+  pivotType
 }) => {
   const [showCheckboxes, setShowCheckboxes] = useState(false);
 
@@ -982,16 +985,28 @@ const Dropdown = ({
           alignItems: "center",
         }}
       >
-        <i
-          className={`fa-solid ${
-            !showCheckboxes ? "fa-chevron-right" : "fa-chevron-down"
-          }`}
-          style={{ cursor: "pointer" }}
-          onClick={() => setShowCheckboxes(!showCheckboxes)}
-        ></i>
-        <Text css={{ cursor: "pointer", margin: "0" }}>{columnDef.name}</Text>
+        {pivotType !== pivotTypes.AVG ? (
+          <>
+            <i
+              className={`fa-solid ${
+                !showCheckboxes ? "fa-chevron-right" : "fa-chevron-down"
+              }`}
+              style={{ cursor: "pointer" }}
+              onClick={() => setShowCheckboxes(!showCheckboxes)}
+            ></i>
+            <Text css={{ cursor: "pointer", margin: "0" }}>{columnDef.name}</Text>
+          </>
+        ) : (
+          <CheckboxWithText
+            index={index}
+            handleCheckboxChange={handleCheckboxChange}
+            handleCheckboxUncheck={handleCheckboxUncheck}
+            text={columnDef.name}
+            columnDef={columnDef}
+          />
+        )}
       </Box>
-      {showCheckboxes && (
+      {showCheckboxes && pivotType !== pivotTypes.AVG && (
         <Box
           css={{
             display: "flex",
@@ -1057,7 +1072,7 @@ const Rating = ({
             gap: "$4",
           }}
         >
-          {(pivotType === pivotTypes.AVG ? [1] : [1, 2, 3, 4, 5]).map((value, index) => (
+          {(pivotType === pivotTypes.AVG ? ['Select all'] : [1, 2, 3, 4, 5]).map((value, index) => (
             <CheckboxWithText
               key={index}
               index={index}
@@ -1115,7 +1130,7 @@ const OpinionScale = ({
             gap: "$4",
           }}
         >
-          {(pivotType === pivotTypes.AVG ? [1] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).map((value, index) => (
+          {(pivotType === pivotTypes.AVG ? ['Select all'] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).map((value, index) => (
             <CheckboxWithText
               key={index}
               columnDef={columnDef}
