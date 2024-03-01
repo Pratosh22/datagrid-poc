@@ -62,7 +62,7 @@ const chartSelect = (addModal, setSelectedValues, type, setSelectedChartType) =>
 };
 
 const headerFormatter = (row, cell, value, column) => {
-  // return `<div class="tooltip-2cols-row">${column.params.name}</div>`;
+  return `<div class="tooltip-2cols-row">${column.params.name}</div>`;
 }
 
 function SlickGridR() {
