@@ -7,6 +7,7 @@ import {
   FieldType,
   Filters,
   GroupTotalFormatters,
+  SlickRowBasedEdit,
 } from "slickgrid-react";
 import { SlickCustomTooltip } from "@slickgrid-universal/custom-tooltip-plugin";
 import { questions, responses } from "./responses.json";
@@ -83,12 +84,14 @@ const chartSelect = (
 
 const headerFormatter = (row, cell, value, column) => {
   return `<div class="tooltip-2cols-row">${column.params.name}</div>`;
-}
+};
 
 const pivotTypes = {
   SUM: "sum",
   AVG: "avg",
   COUNT: "count",
+  MAX: "max",
+  MIN: "min",
 };
 
 function SlickGridR() {
@@ -117,6 +120,9 @@ function SlickGridR() {
 
   const gridOptions = {
     enableAutoResize: true,
+    autoResize: {
+      container: "#grid1",
+    },
     enableCellNavigation: true,
     gridWidth: 1450,
     cellSelection: true,
@@ -208,8 +214,8 @@ function SlickGridR() {
             console.log(e, args, "copy");
             document.execCommand("copy");
           },
-        }
-      ]
+        },
+      ],
     },
     enableFiltering: true,
     enableGrouping: true,
@@ -229,7 +235,7 @@ function SlickGridR() {
     externalResources: [new SlickCustomTooltip()],
     customTooltip: {
       headerFormatter: headerFormatter,
-    }
+    },
   };
   const populateColumnData = () => {
     const columnArr = [];
@@ -436,7 +442,7 @@ function SlickGridR() {
     }
   }, [columnList]);
 
-  const handleCheckboxChange = (index,column, value) => {
+  const handleCheckboxChange = (index, column, value) => {
     let field = "";
     console.log(column);
     const tempColumnDefs = [];
@@ -461,6 +467,30 @@ function SlickGridR() {
             id: Math.random().toString(36).substring(7),
             name: `${"avg"}(${newColumnDef.name})`,
             field: `${"avg"}-${newColumnDef.field}`,
+            sortable: true,
+            params: {
+              ...newColumnDef.params,
+            },
+          };
+          pivotMode.forEach((columnDef, i) => {
+            if (columnDef.field === column.field) {
+              setColumnDefs((prevColumnDefs) => [...prevColumnDefs, newColumn]);
+            }
+          });
+          tempColumnDefs.push(newColumn);
+        } else if (
+          pivotType === pivotTypes.MAX ||
+          pivotType === pivotTypes.MIN
+        ) {
+          console.log('in');
+          const newColumn = {
+            id: Math.random().toString(36).substring(7),
+            name: `${pivotType === pivotTypes.MAX ? "max" : "min"}(${
+              newColumnDef.name
+            })`,
+            field: `${pivotType === pivotTypes.MAX ? "max" : "min"}-${
+              newColumnDef.field
+            }`,
             sortable: true,
             params: {
               ...newColumnDef.params,
@@ -593,9 +623,9 @@ function SlickGridR() {
                 row[k + `-${column.field}`] = v / count[key][k];
               } else if (pivotType === pivotTypes.SUM) {
                 //if value is string, set sum as count[key][k]
-                if(isNaN(k)) {
+                if (isNaN(k)) {
                   row[k + `-${column.field}`] = count[key][k];
-                }else{
+                } else {
                   row[k + `-${column.field}`] = sum[key][k];
                 }
               } else if (pivotType === pivotTypes.COUNT) {
@@ -607,6 +637,57 @@ function SlickGridR() {
         return row;
       });
       console.log(resultRows, "resultRows");
+    } else if (
+      firstColumn &&
+      secondColumn &&
+      (pivotType === pivotTypes.MAX || pivotType === pivotTypes.MIN)
+    ) {
+      let max = {};
+      let min = {};
+      let count = {};
+      initialRows.forEach((row) => {
+        const value = row[firstColumn];
+        let value2 = row[secondColumn];
+        if (value && value2) {
+          let parsedValue2 = parseInt(value2);
+          if (isNaN(parsedValue2)) {
+            // If value2 cannot be parsed to a number, treat it as a string
+            parsedValue2 = value2;
+          }
+          //create object with value as key , parsedValue2 as another key and sum of parsedValue2
+          if (!max[value]) {
+            max[value] = {};
+            min[value] = {};
+            count[value] = {};
+          }
+          if (!count[value][parsedValue2]) {
+            count[value][parsedValue2] = 1;
+          } else {
+            // Increment the count
+            count[value][parsedValue2]++;
+          }
+        }
+      });
+      
+      // After the forEach loop, find the maximum and minimum count and assign them to max[value] and min[value] respectively
+      Object.keys(count).forEach((key) => {
+        const entries = Object.entries(count[key]);
+        max[key] = entries.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+        min[key] = entries.reduce((a, b) => (b[1] < a[1] ? b : a))[0];
+      });
+    
+      let resultRows = rows.map((row) => {
+        Object.entries(pivotType === pivotTypes.MAX ? max : min).forEach(([key, value]) => {
+          if (row[firstColumn] === key) {
+            row[`${pivotType}` + `-${column.field}`] = value;
+          }
+        });
+        return row;
+      });
+      console.log(resultRows, "resultRows");
+      console.log(min, 'min');
+      console.log(max,' max');
+      console.log(count, 'count');
     } else {
       let total = [];
       let count = [];
@@ -646,13 +727,14 @@ function SlickGridR() {
                 totalSum += Number(rating) * ratingCount;
                 totalCount += ratingCount;
               });
-              row["avg" + `-${column.field}`] = (totalSum / totalCount).toFixed(2);
+              row["avg" + `-${column.field}`] = (totalSum / totalCount).toFixed(
+                2
+              );
             });
           }
         });
         return row;
       });
-      console.log(count);
     }
   };
   useEffect(() => {
@@ -663,13 +745,20 @@ function SlickGridR() {
   }, []);
 
   const handleCheckboxUncheck = (index, column, value) => {
-    if (value && pivotType !== pivotTypes.AVG && columnDefs.length > 1) {
+    if (value && ( pivotType === pivotTypes.SUM || pivotType === pivotTypes.COUNT ) && columnDefs.length > 1) {
       setColumnDefs((prevColumnDefs) =>
         prevColumnDefs.filter(
           (columnDef) => columnDef.field !== `${value}-${column.field}`
         )
       );
-    } else if(value && pivotType === pivotTypes.AVG && columnDefs.length > 1) {
+    } else if (value && ( pivotType === pivotTypes.MAX || pivotType === pivotTypes.MIN ) && columnDefs.length > 1) {
+      setColumnDefs((prevColumnDefs) =>
+        prevColumnDefs.filter(
+          (columnDef) => columnDef.field !== `${pivotType === pivotTypes.MAX ? "max" : "min"}-${column.field}`
+        )
+      );
+    
+    } else if (value && pivotType === pivotTypes.AVG && columnDefs.length > 1) {
       setColumnDefs((prevColumnDefs) =>
         prevColumnDefs.filter(
           (columnDef) => columnDef.field !== `${"avg"}-${column.field}`
@@ -679,7 +768,7 @@ function SlickGridR() {
       console.log(column, "column");
       setColumnDefs((prevColumnDefs) =>
         prevColumnDefs.filter(
-          (columnDef) => columnDef.params.id != column.field 
+          (columnDef) => columnDef.params.id != column.field
         )
       );
     }
@@ -803,19 +892,21 @@ function SlickGridR() {
               console.log("drag", args);
             }}
           />
-          <Box css={{
-            paddingBottom: "20px",
-            borderLeft: "1px solid #e0e0e0",
-          }}>
+          <Box
+            css={{
+              paddingBottom: "20px",
+              borderLeft: "1px solid #e0e0e0",
+            }}
+          >
             <Box
               id="pivotOption"
               css={{
                 textAlign: "justify",
                 paddingLeft: "20px",
                 width: "300px",
-                height:"fit-content",
-                maxHeight:"100vh",
-                overflowY:"scroll",
+                height: "fit-content",
+                maxHeight: "100vh",
+                overflowY: "scroll",
                 "::-webkit-scrollbar": "hidden",
               }}
             >
@@ -849,13 +940,17 @@ function SlickGridR() {
                     }}
                     size="md"
                   />
-                  <Text css={{ fontSize: "16px", margin: "0" }}>Pivot Mode</Text>
+                  <Text css={{ fontSize: "16px", margin: "0" }}>
+                    Pivot Mode
+                  </Text>
                 </Box>
                 <Select
                   options={[
                     { value: pivotTypes.SUM, label: "Sum" },
                     { value: pivotTypes.AVG, label: "Average" },
                     { value: pivotTypes.COUNT, label: "Count" },
+                    { value: pivotTypes.MAX, label: "Max" },
+                    { value: pivotTypes.MIN, label: "Min" },
                   ]}
                   defaultValue={{ value: pivotTypes.SUM, label: "Sum" }}
                   onChange={(e) => {
@@ -966,7 +1061,7 @@ const Dropdown = ({
   index,
   handleCheckboxChange,
   handleCheckboxUncheck,
-  pivotType
+  pivotType,
 }) => {
   const [showCheckboxes, setShowCheckboxes] = useState(false);
 
@@ -994,7 +1089,9 @@ const Dropdown = ({
               style={{ cursor: "pointer" }}
               onClick={() => setShowCheckboxes(!showCheckboxes)}
             ></i>
-            <Text css={{ cursor: "pointer", margin: "0" }}>{columnDef.name}</Text>
+            <Text css={{ cursor: "pointer", margin: "0" }}>
+              {columnDef.name}
+            </Text>
           </>
         ) : (
           <CheckboxWithText
@@ -1006,27 +1103,30 @@ const Dropdown = ({
           />
         )}
       </Box>
-      {showCheckboxes && pivotType !== pivotTypes.AVG && (
-        <Box
-          css={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "$4",
-          }}
-        >
-          {columnDef.params?.choices.map((choice, index) => (
-            <CheckboxWithText
-              key={index}
-              index={index}
-              handleCheckboxChange={handleCheckboxChange}
-              columnDef={columnDef}
-              value={choice.txt}
-              handleCheckboxUncheck={handleCheckboxUncheck}
-              text={choice.txt}
-            />
-          ))}
-        </Box>
-      )}
+      {showCheckboxes &&
+        pivotType !== pivotTypes.AVG &&
+        pivotType !== pivotTypes.MAX &&
+        pivotType !== pivotTypes.MIN && (
+          <Box
+            css={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "$4",
+            }}
+          >
+            {columnDef.params?.choices.map((choice, index) => (
+              <CheckboxWithText
+                key={index}
+                index={index}
+                handleCheckboxChange={handleCheckboxChange}
+                columnDef={columnDef}
+                value={choice.txt}
+                handleCheckboxUncheck={handleCheckboxUncheck}
+                text={choice.txt}
+              />
+            ))}
+          </Box>
+        )}
     </Box>
   );
 };
@@ -1036,7 +1136,7 @@ const Rating = ({
   index,
   handleCheckboxChange,
   handleCheckboxUncheck,
-  pivotType
+  pivotType,
 }) => {
   const [showCheckboxes, setShowCheckboxes] = useState(false);
 
@@ -1072,7 +1172,10 @@ const Rating = ({
             gap: "$4",
           }}
         >
-          {(pivotType === pivotTypes.AVG ? ['Select all'] : [1, 2, 3, 4, 5]).map((value, index) => (
+          {((pivotType === pivotTypes.AVG || pivotType === pivotTypes.MAX || pivotType === pivotTypes.MIN )
+            ? ["Select all"]
+            : [1, 2, 3, 4, 5]
+          ).map((value, index) => (
             <CheckboxWithText
               key={index}
               index={index}
@@ -1094,7 +1197,7 @@ const OpinionScale = ({
   index,
   handleCheckboxChange,
   handleCheckboxUncheck,
-  pivotType
+  pivotType,
 }) => {
   const [showCheckboxes, setShowCheckboxes] = useState(false);
 
@@ -1130,7 +1233,10 @@ const OpinionScale = ({
             gap: "$4",
           }}
         >
-          {(pivotType === pivotTypes.AVG ? ['Select all'] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).map((value, index) => (
+          {((pivotType === pivotTypes.AVG || pivotType === pivotTypes.MAX || pivotType === pivotTypes.MIN )
+            ? ["Select all"]
+            : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+          ).map((value, index) => (
             <CheckboxWithText
               key={index}
               columnDef={columnDef}
