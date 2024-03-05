@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Formatters,
   SlickgridReact,
@@ -7,7 +7,6 @@ import {
   FieldType,
   Filters,
   GroupTotalFormatters,
-  SlickRowBasedEdit,
 } from "slickgrid-react";
 import { SlickCustomTooltip } from "@slickgrid-universal/custom-tooltip-plugin";
 import { questions, responses } from "./responses.json";
