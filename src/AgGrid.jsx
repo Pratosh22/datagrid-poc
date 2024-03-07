@@ -221,23 +221,41 @@ const AgGrid = () => {
 export default AgGrid;
 const ratingCellRenderer = (params) => {
   if (!params.data) {
-    console.log("params", params);
-    return params.value;
+    if(params.colDef.cellRenderer){
+      return params.value.value || params.value
+    }else{
+      return params.value
+    }
   }
   const { value } = params;
   const stars = [];
   for (let i = 0; i < value; i++) {
     stars.push(<RatingiconstarSVG key={i} />);
   }
+  console.log(params)
   return <div>{stars}</div>;
 };
 
 const opinionScaleRenderer = (params) => {
   const { value } = params;
+  if (!params.data) {
+    if(params.colDef.cellRenderer){
+      return params.value.value || params.value
+    }else{
+      return params.value
+    }
+  }
   return <div>{value}</div>;
 };
 
 const multipleChoiceCellRenderer = (params) => {
   const { value } = params;
+  if (!params.data) {
+    if(params.colDef.cellRenderer){
+      return params.value.value || params.value
+    }else{
+      return params.value
+    }
+  }
   return <div>{value}</div>;
 };
