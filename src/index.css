@@ -23,9 +23,9 @@ body{
   height: 100vh!important;
   overflow-x: scroll;
 }
-
-#PivotView_grid{
-  width: fit-content!important;
+.e-draggable-prompt{
+  display: flex;
+  justify-content: center;
 }
 .e-list-parent{
   display: flex;
