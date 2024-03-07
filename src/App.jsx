@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Route, Link, Routes } from "react-router-dom";
 import DataGridEx from "./DataGrid";
 import SlickGridR from "./SlickGrid";
-import SyncTable from "./syncTable";
+import SyncTable from "./SyncTable";
 import AgGrid from "./AgGrid";
 function App() {
     return (
