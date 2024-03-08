@@ -30,6 +30,9 @@ body{
 .ag-chart-tool-panel-button-enable .ag-chart-menu-close{
   position: relative!important;
 }
+.ag-column-drop.ag-column-drop-horizontal{
+  overflow: scroll;
+}
 .e-list-parent{
   display: flex;
   flex-direction:column;
@@ -64,7 +67,6 @@ a:hover {
 
 body {
   margin: 0;
-  overflow: hidden;
   display: flex;
   place-items: center;
 }
