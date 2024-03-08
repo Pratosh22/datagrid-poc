@@ -27,6 +27,9 @@ body{
   display: flex;
   justify-content: center;
 }
+.ag-chart-tool-panel-button-enable .ag-chart-menu-close{
+  position: relative!important;
+}
 .e-list-parent{
   display: flex;
   flex-direction:column;

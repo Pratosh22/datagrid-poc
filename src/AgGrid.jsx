@@ -245,7 +245,7 @@ const AgGrid = () => {
             if (loadMoreColumns) {
               setLoadMoreColumns(false);
             } else {
-              setReset(true);
+              setReset(!reset);
             }
           }}
           size={"md"}
@@ -300,9 +300,9 @@ export default AgGrid;
 const ratingCellRenderer = (params) => {
   if (!params.data) {
     if (params.colDef.cellRenderer) {
-      return params.value.value || params.value;
+      return params?.value?.value || params?.value;
     } else {
-      return params.value;
+      return params?.value;
     }
   }
   const { value } = params;
@@ -317,9 +317,9 @@ const opinionScaleRenderer = (params) => {
   const { value } = params;
   if (!params.data) {
     if (params.colDef.cellRenderer) {
-      return params.value.value || params.value;
+      return params?.value?.value || params?.value;
     } else {
-      return params.value;
+      return params?.value;
     }
   }
   return <div>{value}</div>;
@@ -329,9 +329,9 @@ const multipleChoiceCellRenderer = (params) => {
   const { value } = params;
   if (!params.data) {
     if (params.colDef.cellRenderer) {
-      return params.value.value || params.value;
+      return params?.value?.value || params?.value;
     } else {
-      return params.value;
+      return params?.value;
     }
   }
   return <div>{value}</div>;
